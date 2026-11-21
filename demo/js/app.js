@@ -58,8 +58,12 @@ export function layout(title, opts = {}) {
   const parts = [top, page];
   if (state.boot && !opts.noNav) {
     const cur = location.hash || '#/';
-    const nav = h('nav.bottom-nav', navItems().map((it) => {
-      const active = it.href === '#/' ? cur === '#/' || cur === '' : cur.startsWith(it.href);
+    const items = navItems();
+    // mục sáng là mục có đường dẫn khớp dài nhất (tránh "Tài khoản" và "Quản trị" cùng sáng)
+    const match = items.filter((it) => (it.href === '#/' ? cur === '#/' || cur === '' : cur === it.href || cur.startsWith(it.href + '/')))
+      .sort((a, b) => b.href.length - a.href.length)[0];
+    const nav = h('nav.bottom-nav', items.map((it) => {
+      const active = it === match;
       const badgeVal = it.badge === 'unread' ? state.boot.unread : it.badge === 'pending' ? state.boot.pendingCount : 0;
       return h('a' + (active ? '.active' : '') + (it.fab ? '.fab' : ''), { href: it.href },
         icon(it.ic), h('span', it.label), badgeVal ? h('span.badge-dot', badgeVal > 99 ? '99+' : String(badgeVal)) : null);
@@ -125,6 +129,7 @@ const ROUTES = [
   [/^#\/admin\/audit$/, () => Admin.renderAudit()]
 ];
 
+let routeSeq = 0;
 export async function route() {
   const hash = location.hash || '#/';
   if (hash.startsWith('#/reset')) return Auth.renderReset(new URLSearchParams(hash.split('?')[1] || '').get('t'));
@@ -140,7 +145,11 @@ export async function route() {
   for (const [re, fn] of ROUTES) {
     const m = re.exec(hash);
     if (m) {
-      try { await fn(m); } catch (e) { if (e && e.code !== 'AUTH') renderFatal(e.message); }
+      const token = ++routeSeq;
+      try { await fn(m); } catch (e) {
+        if (token !== routeSeq) return;            // đã chuyển sang trang khác, bỏ qua lỗi của trang cũ
+        if (e && e.code !== 'AUTH') renderFatal(e.message);
+      }
       return;
     }
   }

@@ -78,7 +78,9 @@ export async function renderSignature() {
     await busy('Đang lưu chữ ký…', () => api('me.signature.upload', { pngBase64: bytesToBase64(png) }, { write: true }));
     await refreshBoot();
     toast('Đã lưu ảnh chữ ký.', 'ok');
-    history.length > 1 ? history.back() : go('#/profile');
+    let back = '';
+    try { back = sessionStorage.getItem('dn_after_sig') || ''; sessionStorage.removeItem('dn_after_sig'); } catch (x) { /* bỏ qua */ }
+    go(back || '#/profile');
   });
 }
 

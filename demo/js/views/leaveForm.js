@@ -34,6 +34,7 @@ export async function render(id) {
   if (id) {
     page.append(h('div.splash', h('div.spinner')));
     const L = await api('leave.get', { id });
+    if (!page.isConnected) return;
     page.replaceChildren();
     if (!L.can.edit) { page.append(h('div.alert.info', 'Đơn này không sửa được nữa.')); return; }
     Object.assign(f, {
@@ -192,6 +193,7 @@ export async function render(id) {
     if (!f.campusIds.length) return 'Chọn điểm trường liên quan.';
     return '';
   };
+  if (!page.parentNode) return;
   page.classList.add('has-action');
   page.parentNode.insertBefore(h('div.action-bar',
     h('button.btn.outline', { onclick: async () => { await busy('Đang lưu nháp…', save); toast('Đã lưu bản nháp.', 'ok'); go('#/leave/' + f.id); } }, 'Lưu nháp'),

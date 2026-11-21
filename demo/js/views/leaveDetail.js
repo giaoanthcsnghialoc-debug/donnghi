@@ -7,9 +7,15 @@ import { placeSignature } from './signPlacer.js';
 
 const DECISION_VI = { APPROVE: 'Phê duyệt', REJECT: 'Từ chối', REQUEST_CHANGES: 'Yêu cầu bổ sung', CANCEL: 'Hủy đơn' };
 
-function handleSignError(e) {
-  if (e.code === 'NO_SIGNATURE') { toast(e.message, 'bad'); go('#/signature'); return true; }
-  if (e.code === 'SIGN_NOT_CONFIGURED') { toast(e.message, 'bad'); return true; }
+/** Lỗi ký: thiếu ảnh chữ ký thì đưa tới trang tạo chữ ký, tạo xong quay lại đúng đơn. Trả về true nếu đã chuyển trang. */
+function handleSignError(e, leaveId) {
+  if (e.code === 'NO_SIGNATURE') {
+    try { sessionStorage.setItem('dn_after_sig', '#/leave/' + leaveId); } catch (x) { /* bỏ qua */ }
+    toast('Bạn cần tạo ảnh chữ ký trước khi ký. Tạo xong sẽ quay lại đơn.', 'bad');
+    go('#/signature');
+    return true;
+  }
+  if (e.code === 'SIGN_NOT_CONFIGURED') toast(e.message, 'bad');
   return false;
 }
 
@@ -40,7 +46,7 @@ export async function signAsSender(L) {
     toast('Đã ký và gửi đơn tới Hiệu trưởng.', 'ok');
     go('#/leave/' + L.id);
   } catch (e) {
-    if (!handleSignError(e) && e.message) toast(e.message, 'bad');
+    if (handleSignError(e, L.id)) return;
     go('#/leave/' + L.id);
   }
 }
@@ -71,7 +77,7 @@ async function approveFlow(L) {
     await refreshBoot();
     go(state.boot.canDecide ? '#/approvals' : '#/');
   } catch (e) {
-    if (!handleSignError(e) && e.message) toast(e.message, 'bad');
+    handleSignError(e, L.id);
   }
 }
 
@@ -84,6 +90,7 @@ export async function render(id) {
   const page = layout('Chi tiết đơn', { back: '#/' });
   page.append(h('div.splash', h('div.spinner')));
   const L = await api('leave.get', { id });
+  if (!page.isConnected) return;   // người dùng đã chuyển sang trang khác trong lúc tải
   page.replaceChildren();
   const snap = L.snapshot || {};
 
@@ -184,7 +191,7 @@ export async function render(id) {
       toast('Đã hủy đơn.'); render(L.id);
     }
   }, 'Hủy đơn'));
-  if (btns.length) {
+  if (btns.length && page.parentNode) {
     page.classList.add('has-action');
     page.parentNode.insertBefore(h('div.action-bar', btns), page.nextSibling);
   }
