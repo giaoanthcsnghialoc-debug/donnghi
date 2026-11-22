@@ -1,5 +1,5 @@
 // Service worker: lưu sẵn giao diện để mở nhanh. Không bao giờ lưu dữ liệu API.
-const VERSION = 'donnghi-0.3.4';
+const VERSION = 'donnghi-0.3.5';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/app.js', 'js/api.js', 'js/ui.js', 'js/config.js', 'js/leavecalc.js', 'js/pdftools.js',
@@ -12,7 +12,7 @@ const SHELL = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)));
+  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })))));
 });
 
 self.addEventListener('activate', (e) => {
@@ -29,7 +29,7 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET' || url.origin !== self.location.origin) return;  // API Google: luôn đi mạng
   // Mạng trước, lỗi mạng thì dùng bản đã lưu – để bản mới lên ngay khi có mạng.
   e.respondWith(
-    fetch(e.request).then((res) => {
+    fetch(e.request, { cache: 'no-cache' }).then((res) => {
       if (res.ok) { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(e.request, copy)); }
       return res;
     }).catch(() => caches.match(e.request).then((r) => r || caches.match('index.html')))
