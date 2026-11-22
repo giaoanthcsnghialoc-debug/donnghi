@@ -1,7 +1,7 @@
 // Danh sách: đơn của tôi (danh sách + lịch tháng), hàng chờ duyệt, đơn toàn trường, thông báo.
 import { api } from '../api.js';
 import { h, clear, icon, viDateTime, todayStr, busy, toast, confirmSheet } from '../ui.js';
-import { signAsSender } from './leaveDetail.js';
+import { sendDraft, signWithPreview } from './leaveDetail.js';
 import { state, layout, go, has, updateBadges } from '../app.js';
 import { leaveRow } from './home.js';
 
@@ -26,10 +26,10 @@ export async function renderMine() {
         try { await busy('Đang xóa…', () => api('leave.deleteDraft', { id: l.id }, { write: true })); toast('Đã xóa bản nháp.', 'ok'); await reload(); } catch (e) { /* đã báo lỗi */ }
       } }, icon('trash'), 'Xóa'));
       acts.push(h('button.btn.sm.primary', { type: 'button', onclick: async () => {
-        try { const S = await busy('Đang gửi…', () => api('leave.submit', { id: l.id }, { write: true })); await signAsSender(S); } catch (e) { /* đã báo lỗi */ }
+        await sendDraft(l);
       } }, icon('send'), 'Gửi duyệt'));
     } else if (l.status === 'WAIT_SIGN') {
-      acts.push(h('button.btn.sm.primary', { type: 'button', onclick: () => signAsSender(l) }, icon('pen'), 'Chèn chữ ký'));
+      acts.push(h('button.btn.sm.primary', { type: 'button', onclick: () => signWithPreview(l) }, icon('pen'), 'Chèn chữ ký'));
     }
     const row = leaveRow(l, 'mine');
     if (!acts.length) return row;

@@ -5,6 +5,7 @@ import { state, layout, go } from '../app.js';
 import { calcLeave } from '../leavecalc.js';
 import { imagesToPdf, compressImage } from '../pdftools.js';
 import { signAsSender } from './leaveDetail.js';
+import { previewLeave } from './preview.js';
 
 function seg(options, value, onChange) {
   const el = h('div.seg');
@@ -25,6 +26,7 @@ export async function render(id) {
   const page = layout(id ? 'Sửa đơn' : 'Tạo đơn xin nghỉ', { back: id ? '#/leave/' + id : '#/' });
   if (!b.canSubmit) { page.append(h('div.alert.info', 'Tài khoản của bạn không tạo đơn trong hệ thống.')); return; }
   const today = todayStr();
+  let refreshSend = () => {};
   const f = {
     id: null, rowVersion: '', sourceType: 'TEMPLATE', leaveTypeId: '', otherNote: '', startDate: today, startSession: 'AM',
     endDate: today, endSession: 'PM', reason: '', contactPhone: b.user.phone || '',
@@ -88,7 +90,7 @@ export async function render(id) {
 
   page.append(h('section.card.stack',
     h('h2', 'Cách tạo đơn'),
-    seg([['TEMPLATE', 'Điền mẫu có sẵn'], ['UPLOAD', 'Tải đơn của tôi lên']], f.sourceType, (v) => { f.sourceType = v; drawUpload(); }),
+    seg([['TEMPLATE', 'Điền mẫu có sẵn'], ['UPLOAD', 'Tải đơn của tôi lên']], f.sourceType, (v) => { f.sourceType = v; drawUpload(); refreshSend(); }),
     uploadBox));
   drawUpload();
 
@@ -193,15 +195,27 @@ export async function render(id) {
     if (!f.campusIds.length) return 'Chọn điểm trường liên quan.';
     return '';
   };
+  const sendBtn = h('button.btn.primary', {
+    onclick: async () => {
+      const v = validate(); if (v) { toast(v, 'bad'); return; }
+      if (f.sourceType !== 'UPLOAD') {
+        // Đơn theo mẫu: lưu nháp rồi cho xem đơn (đã chèn chữ ký) để rà soát trước khi gửi.
+        try { await busy('Đang lưu…', save); } catch (e) { return; }
+        if (!await previewLeave({ id: f.id })) return;
+      }
+      let L;
+      try { L = await busy('Đang gửi đơn…', async () => { if (f.sourceType === 'UPLOAD') await save(); return api('leave.submit', { id: f.id }, { write: true }); }); } catch (e) { return; }
+      await signAsSender(L);
+    }
+  });
+  refreshSend = () => {
+    const up = f.sourceType === 'UPLOAD';
+    sendBtn.replaceChildren(icon(up ? 'send' : 'eye'), up ? 'Gửi duyệt' : 'Xem đơn và gửi');
+  };
+  refreshSend();
   if (!page.parentNode) return;
   page.classList.add('has-action');
   page.parentNode.insertBefore(h('div.action-bar',
     h('button.btn.outline', { onclick: async () => { await busy('Đang lưu nháp…', save); toast('Đã lưu bản nháp.', 'ok'); go('#/leave/' + f.id); } }, 'Lưu nháp'),
-    h('button.btn.primary', {
-      onclick: async () => {
-        const v = validate(); if (v) { toast(v, 'bad'); return; }
-        let L = await busy('Đang gửi đơn…', async () => { await save(); return api('leave.submit', { id: f.id }, { write: true }); });
-        await signAsSender(L);
-      }
-    }, icon('send'), 'Gửi duyệt')), page.nextSibling);
+    sendBtn), page.nextSibling);
 }

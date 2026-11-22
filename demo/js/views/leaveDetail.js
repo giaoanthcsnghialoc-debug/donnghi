@@ -4,6 +4,7 @@ import { h, clear, icon, toast, busy, askText, statusBadge, fmtDays, fmtSize, vi
 import { state, layout, go, refreshBoot } from '../app.js';
 import { stampPdf } from '../pdftools.js';
 import { placeSignature } from './signPlacer.js';
+import { previewLeave } from './preview.js';
 
 const DECISION_VI = { APPROVE: 'Phê duyệt', REJECT: 'Từ chối', REQUEST_CHANGES: 'Yêu cầu bổ sung', CANCEL: 'Hủy đơn' };
 
@@ -49,6 +50,20 @@ export async function signAsSender(L) {
     if (handleSignError(e, L.id)) return;
     go('#/leave/' + L.id);
   }
+}
+
+/** Gửi đơn nháp: đơn theo mẫu được xem trước (đã chèn chữ ký) rồi mới gửi. */
+export async function sendDraft(L) {
+  if (L.sourceType !== 'UPLOAD' && !await previewLeave({ id: L.id })) return;
+  let S;
+  try { S = await busy('Đang gửi…', () => api('leave.submit', { id: L.id }, { write: true })); } catch (e) { return; }
+  await signAsSender(S);
+}
+
+/** Đơn đang chờ ký người gửi: xem trước rồi chèn chữ ký. */
+export async function signWithPreview(L) {
+  if (L.sourceType !== 'UPLOAD' && !await previewLeave({ id: L.id }, { sendText: 'Ký và gửi' })) return;
+  await signAsSender(L);
 }
 
 /** Người duyệt chèn chữ ký phê duyệt. */
@@ -131,6 +146,8 @@ export async function render(id) {
   (L.versions || []).filter((v) => v.hasPdf).slice().reverse().forEach((v) => {
     fileCard.append(h('button.btn.outline.block', { onclick: () => openPdf(L, 'version', v.version) }, icon('eye'), 'Xem đơn' + (v.version > 1 ? ' – lần gửi ' + v.version : '') + ' đã ký'));
   });
+  if (L.userId === state.boot.user.id && L.sourceType !== 'UPLOAD' && ['DRAFT', 'WAIT_SIGN', 'NEED_CHANGES'].includes(L.status))
+    fileCard.append(h('button.btn.outline.block', { onclick: () => previewLeave({ id: L.id }, { viewOnly: true }) }, icon('eye'), 'Xem trước đơn'));
   if (L.can.sign && L.sourceType === 'UPLOAD') fileCard.append(h('button.btn.outline.block', { onclick: () => openPdf(L, 'source') }, icon('file'), 'Xem đơn đã tải lên'));
   (L.attachments || []).forEach((a) => fileCard.append(h('button.file-row', { style: { width: '100%', background: 'none', cursor: 'pointer', textAlign: 'left' }, onclick: async () => {
     const f = await busy('Đang tải tệp…', () => downloadFile('leave.attachment', { attachmentId: a.id }));
@@ -156,9 +173,9 @@ export async function render(id) {
     }
   }, icon('trash'), 'Xóa nháp'));
   if (c.submit && L.status === 'DRAFT') btns.push(h('button.btn.primary', {
-    onclick: async () => { try { const S = await busy('Đang gửi…', () => api('leave.submit', { id: L.id }, { write: true })); await signAsSender(S); } catch (e) { /* đã báo lỗi */ } }
+    onclick: () => sendDraft(L)
   }, icon('send'), 'Gửi duyệt'));
-  if (c.sign) btns.push(h('button.btn.primary', { onclick: () => signAsSender(L) }, icon('pen'), 'Chèn chữ ký'));
+  if (c.sign) btns.push(h('button.btn.primary', { onclick: () => signWithPreview(L) }, icon('pen'), 'Chèn chữ ký'));
   if (c.withdraw) btns.push(h('button.btn.outline', {
     onclick: async () => {
       const note = await askText('Thu hồi đơn', 'Lý do thu hồi (không bắt buộc)', { required: false, okText: 'Thu hồi', okClass: 'danger' });
