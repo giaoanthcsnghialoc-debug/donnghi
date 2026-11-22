@@ -1,6 +1,7 @@
 // Danh sách: đơn của tôi (danh sách + lịch tháng), hàng chờ duyệt, đơn toàn trường, thông báo.
 import { api } from '../api.js';
-import { h, clear, icon, viDateTime, todayStr } from '../ui.js';
+import { h, clear, icon, viDateTime, todayStr, busy, toast, confirmSheet } from '../ui.js';
+import { signAsSender } from './leaveDetail.js';
 import { state, layout, go, has, updateBadges } from '../app.js';
 import { leaveRow } from './home.js';
 
@@ -14,7 +15,26 @@ export async function renderMine() {
   const body = h('div');
   page.append(viewSeg, filters, body, h('a.btn.primary.block', { href: '#/new' }, icon('plus'), 'Tạo đơn mới'));
   body.append(h('div.splash', h('div.spinner')));
-  const all = await api('leave.listMine', {});
+  let all = await api('leave.listMine', {});
+  const reload = async () => { all = await api('leave.listMine', {}); draw(); };
+  // Đơn chưa gửi: có nút thao tác ngay trên danh sách.
+  const mineRow = (l) => {
+    const acts = [];
+    if (l.status === 'DRAFT') {
+      acts.push(h('button.btn.sm.outline', { type: 'button', onclick: async () => {
+        if (!await confirmSheet('Xóa bản nháp', 'Xóa bản nháp "' + (l.typeName || 'Đơn nháp') + ' – ' + (l.period || '') + '"? Không khôi phục được.', 'Xóa', 'danger')) return;
+        try { await busy('Đang xóa…', () => api('leave.deleteDraft', { id: l.id }, { write: true })); toast('Đã xóa bản nháp.', 'ok'); await reload(); } catch (e) { /* đã báo lỗi */ }
+      } }, icon('trash'), 'Xóa'));
+      acts.push(h('button.btn.sm.primary', { type: 'button', onclick: async () => {
+        try { const S = await busy('Đang gửi…', () => api('leave.submit', { id: l.id }, { write: true })); await signAsSender(S); } catch (e) { /* đã báo lỗi */ }
+      } }, icon('send'), 'Gửi duyệt'));
+    } else if (l.status === 'WAIT_SIGN') {
+      acts.push(h('button.btn.sm.primary', { type: 'button', onclick: () => signAsSender(l) }, icon('pen'), 'Chèn chữ ký'));
+    }
+    const row = leaveRow(l, 'mine');
+    if (!acts.length) return row;
+    return h('div.row-with-actions', row, h('div.row-actions', acts));
+  };
   const draw = () => {
     clear(viewSeg, [['list', 'Danh sách'], ['cal', 'Lịch nghỉ']].map(([v, l]) => h('button' + (view === v ? '.on' : ''), { type: 'button', onclick: () => { view = v; draw(); } }, l)));
     filters.hidden = view !== 'list';
@@ -25,7 +45,7 @@ export async function renderMine() {
     }));
     if (view === 'list') {
       const rows = status ? all.filter((x) => x.status === status) : all;
-      clear(body, rows.length ? h('div.list', rows.map((l) => leaveRow(l, 'mine'))) : h('div.empty', 'Chưa có đơn nào.'));
+      clear(body, rows.length ? h('div.list', rows.map(mineRow)) : h('div.empty', 'Chưa có đơn nào.'));
     } else {
       clear(body, calendar(all, month, (m) => { month = m; draw(); }));
     }

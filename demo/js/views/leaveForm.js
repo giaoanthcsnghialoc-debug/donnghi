@@ -203,5 +203,5 @@ export async function render(id) {
         let L = await busy('Đang gửi đơn…', async () => { await save(); return api('leave.submit', { id: f.id }, { write: true }); });
         await signAsSender(L);
       }
-    }, icon('pen'), 'Ký và gửi')), page.nextSibling);
+    }, icon('send'), 'Gửi duyệt')), page.nextSibling);
 }

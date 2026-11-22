@@ -1,6 +1,6 @@
 // Chi tiết đơn, lịch sử, các nút thao tác theo quyền; luồng chèn chữ ký của người gửi và người duyệt.
 import { api, uploadFile, downloadFile, base64ToBytes } from '../api.js';
-import { h, clear, icon, toast, busy, askText, statusBadge, fmtDays, fmtSize, viDate, viDateTime, openBytes, saveBytes, SESSION_VI } from '../ui.js';
+import { h, clear, icon, toast, busy, askText, statusBadge, fmtDays, fmtSize, viDate, viDateTime, openBytes, saveBytes, SESSION_VI, confirmSheet } from '../ui.js';
 import { state, layout, go, refreshBoot } from '../app.js';
 import { stampPdf } from '../pdftools.js';
 import { placeSignature } from './signPlacer.js';
@@ -129,7 +129,7 @@ export async function render(id) {
   if (L.hasFinalPdf) fileCard.append(h('div.btn-row', h('button.btn.primary', { onclick: () => openPdf(L, 'final') }, icon('eye'), 'Xem đơn đã duyệt'),
     h('button.btn.outline', { onclick: async () => { const f = await busy('Đang tải…', () => downloadFile('leave.pdf', { id: L.id, which: 'final' })); saveBytes(f.bytes, 'application/pdf', f.fileName); } }, icon('download'), 'Tải về')));
   (L.versions || []).filter((v) => v.hasPdf).slice().reverse().forEach((v) => {
-    fileCard.append(h('button.btn.outline.block', { onclick: () => openPdf(L, 'version', v.version) }, icon('file'), 'Phiên bản ' + v.version + ' (người gửi đã ký)'));
+    fileCard.append(h('button.btn.outline.block', { onclick: () => openPdf(L, 'version', v.version) }, icon('eye'), 'Xem đơn' + (v.version > 1 ? ' – lần gửi ' + v.version : '') + ' đã ký'));
   });
   if (L.can.sign && L.sourceType === 'UPLOAD') fileCard.append(h('button.btn.outline.block', { onclick: () => openPdf(L, 'source') }, icon('file'), 'Xem đơn đã tải lên'));
   (L.attachments || []).forEach((a) => fileCard.append(h('button.file-row', { style: { width: '100%', background: 'none', cursor: 'pointer', textAlign: 'left' }, onclick: async () => {
@@ -150,11 +150,14 @@ export async function render(id) {
   const c = L.can;
   if (c.edit) btns.push(h('a.btn.outline', { href: '#/edit/' + L.id }, 'Sửa'));
   if (c.deleteDraft) btns.push(h('button.btn.outline', {
-    onclick: async () => { await busy('Đang xóa…', () => api('leave.deleteDraft', { id: L.id }, { write: true })); toast('Đã xóa bản nháp.'); go('#/mine'); }
-  }, 'Xóa nháp'));
+    onclick: async () => {
+      if (!await confirmSheet('Xóa bản nháp', 'Xóa bản nháp này? Không khôi phục được.', 'Xóa', 'danger')) return;
+      await busy('Đang xóa…', () => api('leave.deleteDraft', { id: L.id }, { write: true })); toast('Đã xóa bản nháp.', 'ok'); go('#/mine');
+    }
+  }, icon('trash'), 'Xóa nháp'));
   if (c.submit && L.status === 'DRAFT') btns.push(h('button.btn.primary', {
     onclick: async () => { try { const S = await busy('Đang gửi…', () => api('leave.submit', { id: L.id }, { write: true })); await signAsSender(S); } catch (e) { /* đã báo lỗi */ } }
-  }, icon('pen'), 'Ký và gửi'));
+  }, icon('send'), 'Gửi duyệt'));
   if (c.sign) btns.push(h('button.btn.primary', { onclick: () => signAsSender(L) }, icon('pen'), 'Chèn chữ ký'));
   if (c.withdraw) btns.push(h('button.btn.outline', {
     onclick: async () => {

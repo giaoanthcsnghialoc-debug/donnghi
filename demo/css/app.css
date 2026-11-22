@@ -200,3 +200,11 @@ table.simple th { color: var(--text-2); font-weight: 600; }
 @media (min-width: 900px) {
   .page { padding-top: 24px; }
 }
+
+/* Đơn chưa gửi: nút thao tác ngay dưới dòng trong danh sách */
+.row-with-actions { border-bottom: 1px solid var(--border); }
+.row-with-actions:last-child { border-bottom: 0; }
+.row-with-actions > .list-item { border-bottom: 0 !important; padding-bottom: 6px; }
+.row-actions { display: flex; gap: 8px; justify-content: flex-end; padding: 0 16px 12px; }
+.row-actions .btn { gap: 6px; }
+.row-actions .btn svg { width: 16px; height: 16px; }

@@ -8,6 +8,7 @@ export function leaveRow(l, extra) {
     h('div.grow',
       h('div.row.between', h('span.title', l.fullName && extra !== 'mine' ? l.fullName : l.typeName || 'Đơn nháp'), statusBadge(l.status, l.statusLabel)),
       h('div.sub', (extra !== 'mine' ? l.typeName + ' · ' : '') + (l.period || 'Chưa chọn thời gian') + (l.days ? ' · ' + fmtDays(l.days) : '')),
+      extra === 'mine' && l.code ? h('div.tiny', 'Mã đơn ' + l.code) : null,
       extra === 'waiting' && l.waitingHours >= 0 ? h('div.tiny', 'Chờ ' + l.waitingHours + ' giờ' + (l.isRetroactive ? ' · Đơn nộp sau' : '')) : null,
       extra === 'today' ? h('div.tiny', 'Hôm nay nghỉ buổi: ' + l.todaySessions.map((s) => SESSION_VI[s].toLowerCase()).join(', ') + (l.campusNames.length ? ' · ' + l.campusNames.join(', ') : '')) : null),
     h('span.chev', icon('chev')));
