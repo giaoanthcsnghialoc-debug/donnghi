@@ -9,6 +9,9 @@ import * as LeaveDetail from './views/leaveDetail.js';
 import * as Lists from './views/lists.js';
 import * as Profile from './views/profile.js';
 import * as Admin from './views/admin.js';
+import * as Reports from './views/reports.js';
+import * as Announce from './views/announce.js';
+import * as Support from './views/support.js';
 
 export const state = { boot: null };
 const app = () => document.getElementById('app');
@@ -126,7 +129,17 @@ const ROUTES = [
   [/^#\/admin\/campuses$/, () => Admin.renderCampuses()],
   [/^#\/admin\/balances$/, () => Admin.renderBalances()],
   [/^#\/admin\/settings$/, () => Admin.renderSettings()],
-  [/^#\/admin\/audit$/, () => Admin.renderAudit()]
+  [/^#\/admin\/audit$/, () => Admin.renderAudit()],
+  [/^#\/admin\/years$/, () => Admin.renderYears()],
+  [/^#\/admin\/backups$/, () => Admin.renderBackups()],
+  [/^#\/admin\/template$/, () => Admin.renderTemplate()],
+  [/^#\/admin\/support$/, () => Support.renderAdminList()],
+  [/^#\/reports$/, () => Reports.renderReports()],
+  [/^#\/announcements$/, () => Announce.renderList()],
+  [/^#\/announcements\/new$/, () => Announce.renderForm()],
+  [/^#\/announcement\/(\w+)$/, (m) => Announce.renderDetail(m[1])],
+  [/^#\/support$/, () => Support.renderSupport()],
+  [/^#\/support\/(\w+)$/, (m) => Support.renderDetail(m[1])]
 ];
 
 let routeSeq = 0;

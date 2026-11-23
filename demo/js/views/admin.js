@@ -1,6 +1,6 @@
 // Quản trị: tài khoản, nhập Excel, tổ chuyên môn, điểm trường, quỹ phép, cấu hình, nhật ký; ủy quyền (HT).
 import { api, bytesToBase64, downloadFile } from '../api.js';
-import { h, clear, icon, toast, busy, confirmSheet, sheet, viDateTime, openBytes, saveBytes } from '../ui.js';
+import { h, clear, icon, toast, busy, confirmSheet, sheet, viDate, viDateTime, openBytes, saveBytes } from '../ui.js';
 import { state, layout, go, adminCan, has, refreshBoot } from '../app.js';
 import { mountSignatureTool } from './signatureTool.js';
 import { roleName } from './home.js';
@@ -20,7 +20,11 @@ export function renderMenu() {
     adminCan('org') ? link('#/admin/departments', 'school', 'Tổ chuyên môn') : null,
     adminCan('org') ? link('#/admin/campuses', 'home', 'Điểm trường') : null,
     adminCan('balance') ? link('#/admin/balances', 'cal', 'Quỹ phép năm', 'Nhập số ngày phép theo quy định cho từng người') : null,
-    adminCan('settings') ? link('#/admin/settings', 'settings', 'Cấu hình', 'Tên trường, logo, con dấu, chế độ ký, mẫu đơn') : null,
+    adminCan('settings') ? link('#/admin/settings', 'settings', 'Cấu hình', 'Tên trường, logo, con dấu, chế độ ký') : null,
+    adminCan('settings') ? link('#/admin/template', 'file', 'Mẫu đơn', 'Sửa tiêu đề, lời văn, các dòng của đơn theo mẫu') : null,
+    adminCan('years') ? link('#/admin/years', 'cal', 'Năm học', 'Tạo năm học mới, chuyển năm học') : null,
+    link('#/admin/support', 'bell', 'Yêu cầu hỗ trợ', 'Trả lời câu hỏi, báo lỗi của giáo viên'),
+    u.isPrimaryAdmin ? link('#/admin/backups', 'download', 'Sao lưu dữ liệu', 'Bản sao hằng ngày, lượt tải sổ nghỉ') : null,
     u.isPrimaryAdmin ? link('#/admin/audit', 'shield', 'Nhật ký hệ thống') : null),
   h('p.tiny', 'Quản trị viên không có quyền duyệt hoặc ký thay Hiệu trưởng, và không sửa được nội dung đơn đã duyệt.'));
 }
@@ -275,4 +279,138 @@ export async function renderDelegation() {
   has('PRINCIPAL') && d.status === 'ACTIVE' && (d.effective || d.upcoming) ? h('button.btn.sm.outline', {
     onclick: async () => { if (!(await confirmSheet('Kết thúc ủy quyền', 'Kết thúc ủy quyền cho ' + d.viceName + ' ngay bây giờ?', 'Kết thúc', 'danger'))) return; await busy('Đang xử lý…', () => api('delegation.end', { id: d.id }, { write: true })); await refreshBoot(); renderDelegation(); }
   }, 'Kết thúc') : null))) : h('div.empty', 'Chưa có ủy quyền.'));
+}
+
+/* ---------------- Năm học ---------------- */
+export async function renderYears() {
+  const page = layout('Năm học', { back: '#/admin' });
+  if (!guard(page, adminCan('years'))) return;
+  page.append(h('div.splash', h('div.spinner')));
+  const ys = await api('years.list');
+  if (!page.isConnected) return;
+  page.replaceChildren();
+  const open = ys.filter((y) => y.status === 'OPEN');
+  page.append(h('div.alert.info', 'Chuyển năm học: đơn chưa hoàn tất (nháp, chờ ký, chờ duyệt, yêu cầu bổ sung) của năm cũ được hệ thống tự hủy; năm cũ bị khóa; số ngày phép được cấp chép sang năm mới. Đơn đã duyệt và dữ liệu năm cũ được giữ nguyên, vẫn xem và tải trong Báo cáo.'));
+  page.append(h('div.list', ys.map((y) => {
+    const next = ys.filter((x) => x.status === 'OPEN' && x.startDate > y.startDate).sort((a, b) => (a.startDate < b.startDate ? -1 : 1))[0];
+    const date = h('input.input', { type: 'date', value: y.autoRolloverAt ? new Date(y.autoRolloverAt).toISOString().slice(0, 10) : '' });
+    return h('div.list-item', { style: { display: 'block' } },
+      h('div.row.between', h('span.title', 'Năm học ' + y.name), h('span.status.' + (y.status === 'OPEN' ? 'st-APPROVED' : 'st-CANCELLED'), y.status === 'OPEN' ? 'Đang mở' : 'Đã khóa')),
+      h('div.sub', viDate(y.startDate) + ' – ' + viDate(y.endDate) + ' · ' + y.approved + ' đơn đã duyệt' + (y.status === 'OPEN' ? ' · ' + y.unfinished + ' đơn chưa hoàn tất' : '')),
+      y.status === 'OPEN' && next ? h('div.stack', { style: { marginTop: '10px' } },
+        h('div.tiny', y.autoRolloverAt ? 'Đã hẹn tự chuyển sang ' + next.name + ' lúc ' + viDateTime(y.autoRolloverAt) : 'Chưa hẹn ngày tự chuyển sang ' + next.name + '.'),
+        h('div.grid2', date, h('button.btn.outline', {
+          onclick: async () => { await busy('Đang lưu…', () => api('years.schedule', { id: y.id, date: date.value }, { write: true })); toast(date.value ? 'Đã hẹn ngày chuyển.' : 'Đã bỏ hẹn.', 'ok'); renderYears(); }
+        }, 'Hẹn ngày')),
+        h('button.btn.danger.block', {
+          onclick: async () => {
+            if (!await confirmSheet('Chuyển năm học ngay', 'Khóa năm học ' + y.name + ', tự hủy ' + y.unfinished + ' đơn chưa hoàn tất và chuyển sang ' + next.name + '? Không hoàn tác được.', 'Chuyển năm học', 'danger')) return;
+            const r = await busy('Đang chuyển năm học…', () => api('years.rollover', { id: y.id }, { write: true }));
+            toast('Đã chuyển sang ' + r.next + '. Hủy ' + r.cancelled + ' đơn, chép phép cho ' + r.copiedBalances + ' người.', 'ok');
+            await refreshBoot(); renderYears();
+          }
+        }, 'Chuyển sang ' + next.name + ' ngay')) : null,
+      y.status === 'OPEN' && !next ? h('div.tiny', { style: { marginTop: '6px' } }, 'Tạo năm học mới bên dưới trước khi chuyển.') : null);
+  })));
+  const last = ys[0];
+  const y0 = last ? Number(last.name.slice(0, 4)) + 1 : new Date().getFullYear();
+  const name = h('input.input', { value: y0 + '-' + (y0 + 1) });
+  const s = h('input.input', { type: 'date', value: y0 + '-08-01' });
+  const e = h('input.input', { type: 'date', value: (y0 + 1) + '-07-31' });
+  page.append(h('section.card.stack', h('h2', 'Tạo năm học mới'),
+    h('div.field', h('label', 'Tên năm học'), name),
+    h('div.grid2', h('div.field', h('label.tiny', 'Bắt đầu'), s), h('div.field', h('label.tiny', 'Kết thúc'), e)),
+    h('button.btn.primary.block', {
+      onclick: async () => { await busy('Đang tạo…', () => api('years.create', { name: name.value, startDate: s.value, endDate: e.value }, { write: true })); toast('Đã tạo năm học.', 'ok'); renderYears(); }
+    }, icon('plus'), 'Tạo năm học'),
+    open.length > 1 ? null : h('div.tiny', 'Sau khi tạo, nhập phép năm cho năm mới sẽ được chép tự động khi chuyển năm (có thể sửa lại trong Quỹ phép năm).')));
+}
+
+/* ---------------- Sao lưu ---------------- */
+export async function renderBackups() {
+  const page = layout('Sao lưu dữ liệu', { back: '#/admin' });
+  if (!guard(page, state.boot.user.isPrimaryAdmin)) return;
+  page.append(h('div.splash', h('div.spinner')));
+  const d = await api('backup.list');
+  if (!page.isConnected) return;
+  page.replaceChildren(
+    h('div.alert.info', 'Hệ thống tự sao lưu bảng dữ liệu mỗi ngày vào thư mục SaoLuu trên Google Drive của trường. Giữ bản 30 ngày gần nhất và bản đầu mỗi tháng (lâu dài); bản cũ hơn vào Thùng rác của Drive. Dữ liệu đơn không bao giờ bị xóa tự động.'),
+    h('div.btn-row',
+      h('button.btn.primary', { onclick: async () => { await busy('Đang sao lưu…', () => api('backup.now', {}, { write: true })); toast('Đã sao lưu.', 'ok'); renderBackups(); } }, icon('download'), 'Sao lưu ngay'),
+      h('a.btn.outline', { href: d.folderUrl, target: '_blank', rel: 'noopener' }, 'Mở thư mục SaoLuu')),
+    h('section.card', h('h2', 'Các bản sao lưu'),
+      d.backups.length ? h('div.list', d.backups.map((b) => h('div.list-item',
+        h('div.grow', h('div.row.between', h('span.title', viDateTime(b.at)), h('span.status.' + (b.status === 'DONE' ? 'st-APPROVED' : b.status === 'ERROR' ? 'st-REJECTED' : 'st-CANCELLED'),
+          b.status === 'DONE' ? 'Còn lưu' : b.status === 'ERROR' ? 'Lỗi' : 'Đã dọn')),
+          h('div.sub', b.type === 'DAILY' ? 'Tự động hằng ngày' : 'Sao lưu tay'), b.error ? h('div.tiny', b.error) : null),
+        b.url ? h('a.btn.sm.outline', { href: b.url, target: '_blank', rel: 'noopener' }, 'Mở') : null))) : h('div.tiny', 'Chưa có bản sao lưu. Bản đầu tiên sẽ được tạo trong vòng 1 giờ (sau 1 giờ sáng), hoặc bấm Sao lưu ngay.')),
+    h('section.card', h('h2', 'Lượt tải sổ nghỉ, gói lưu trữ'),
+      d.downloads.length ? h('div.list', d.downloads.map((x) => h('div.list-item', h('div.grow', h('div.title', x.who), h('div.sub', ({ PDF_ZIP: 'Gói PDF đơn đã duyệt', REPORT_XLSX: 'Sổ nghỉ Excel' })[x.type] || x.type), h('div.tiny', viDateTime(x.at)))))) : h('div.tiny', 'Chưa có lượt tải.')));
+}
+
+/* ---------------- Mẫu đơn ---------------- */
+export async function renderTemplate() {
+  const page = layout('Mẫu đơn', { back: '#/admin' });
+  if (!guard(page, adminCan('settings'))) return;
+  page.append(h('div.splash', h('div.spinner')));
+  const t = await api('templates.get');
+  if (!page.isConnected) return;
+  page.replaceChildren();
+  const o = Object.assign({}, t.defaultOpts, t.opts);
+  let mode = t.mode === 'HTML' ? 'HTML' : 'SIMPLE';
+  const text = (key, label, hint) => h('div.field', h('label', label), h('input.input', { value: o[key] || '', oninput: (e) => { o[key] = e.target.value; } }), hint ? h('div.hint', hint) : null);
+  const tog = (key, label) => h('label.check', h('input', { type: 'checkbox', checked: !!o[key], onchange: (e) => { o[key] = e.target.checked; } }), label);
+  const htmlBox = h('textarea.input', { rows: 18, style: { fontFamily: 'monospace', fontSize: '.8rem' } }, t.html);
+  const simple = h('section.card.stack',
+    h('h2', 'Nội dung mẫu'),
+    text('title', 'Tiêu đề đơn'),
+    text('recipient', 'Dòng kính gửi', 'Có thể giữ {{SCHOOL_NAME_TITLE}} để tự điền tên trường.'),
+    text('extraLine', 'Câu thêm trước lời kết (không bắt buộc)', 'Ví dụ: Tôi xin cam kết bàn giao công việc, nhờ đồng nghiệp dạy thay đầy đủ.'),
+    text('closing', 'Lời kết'),
+    text('senderTitle', 'Chức danh ô ký người làm đơn'),
+    h('div.field', h('label', 'Cỡ chữ'), h('select.input', { onchange: (e) => { o.fontSize = Number(e.target.value); } }, [11, 12, 13, 14].map((n) => h('option', { value: n, selected: Number(o.fontSize) === n }, n + ' pt')))),
+    h('h2', 'Hiện các dòng'),
+    tog('showStaffCode', 'Mã nhân viên'), tog('showPosition', 'Chức vụ'), tog('showDepartment', 'Tổ chuyên môn'),
+    tog('showCampuses', 'Điểm trường công tác'), tog('showSelectedCampuses', 'Điểm trường liên quan'), tog('showPhone', 'Số điện thoại liên hệ'));
+  const adv = h('section.card.stack',
+    h('h2', 'Sửa HTML (nâng cao)'),
+    h('div.tiny', 'Chỉ dành cho người biết HTML. Bắt buộc giữ các trường: ' + t.required.join(', ') + '. Danh sách trường: ' + Object.keys(t.fields).map((k) => '{{' + k + '}} ' + t.fields[k]).join('; ') + '.'),
+    htmlBox);
+  const payload = () => (mode === 'HTML' ? { mode, html: htmlBox.value } : { mode, opts: o });
+  const modeSeg = h('div.seg');
+  const area = h('div.stack');
+  const drawMode = () => {
+    clear(modeSeg, [['SIMPLE', 'Chỉnh đơn giản'], ...(t.canEditHtml ? [['HTML', 'HTML nâng cao']] : [])].map(([v, l]) =>
+      h('button' + (mode === v ? '.on' : ''), { type: 'button', onclick: () => { mode = v; drawMode(); } }, l)));
+    clear(area, mode === 'HTML' ? adv : simple);
+  };
+  drawMode();
+  page.append(
+    h('div.alert.info', 'Mỗi lần lưu tạo phiên bản mẫu mới (đang dùng: phiên bản ' + t.version + '). Đơn đã gửi trước đó vẫn giữ mẫu lúc gửi.'),
+    modeSeg, area,
+    h('section.card.stack', h('h2', 'Các phiên bản'), h('div.list', t.versions.map((v) => h('div.list-item', h('div.grow',
+      h('div.row.between', h('span.title', 'Phiên bản ' + v.version), v.status === 'ACTIVE' ? h('span.status.st-APPROVED', 'Đang dùng') : null),
+      h('div.tiny', viDateTime(v.at) + ' · ' + v.by)))))),
+    h('button.btn.outline.block', {
+      onclick: async () => {
+        if (!await confirmSheet('Về mẫu mặc định', 'Lưu mẫu mặc định của hệ thống thành phiên bản mới?', 'Về mặc định')) return;
+        await busy('Đang lưu…', () => api('templates.save', { mode: 'DEFAULT' }, { write: true })); toast('Đã về mẫu mặc định.', 'ok'); renderTemplate();
+      }
+    }, 'Về mẫu mặc định'));
+  page.classList.add('has-action');
+  page.parentNode.insertBefore(h('div.action-bar',
+    h('button.btn.outline', {
+      onclick: async () => {
+        try {
+          const r = await busy('Đang tạo bản xem thử…', () => api('templates.previewDraft', payload()));
+          const bin = atob(r.dataBase64); const bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+          openBytes(bytes, 'application/pdf', r.fileName);
+        } catch (e) { /* đã báo lỗi */ }
+      }
+    }, icon('eye'), 'Xem thử'),
+    h('button.btn.primary', {
+      onclick: async () => {
+        try { const r = await busy('Đang lưu…', () => api('templates.save', payload(), { write: true })); toast('Đã lưu phiên bản ' + r.version + '.', 'ok'); renderTemplate(); } catch (e) { /* đã báo lỗi */ }
+      }
+    }, 'Lưu mẫu')), page.nextSibling);
 }

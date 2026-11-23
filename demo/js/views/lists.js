@@ -114,6 +114,9 @@ export async function renderSchool() {
   const from = h('input.input', { type: 'date', onchange: (e) => { f.from = e.target.value; load(); } });
   const to = h('input.input', { type: 'date', onchange: (e) => { f.to = e.target.value; load(); } });
   const body = h('div');
+  page.append(h('div.btn-row', { style: { marginBottom: '12px' } },
+    h('a.btn.outline', { href: '#/reports' }, icon('list'), 'Báo cáo & sổ nghỉ'),
+    has('PRINCIPAL') || has('VICE') ? h('a.btn.outline', { href: '#/announcements' }, icon('bell'), 'Thông báo BGH') : null));
   page.append(h('section.card.stack',
     q,
     has('PRINCIPAL') ? sel('status', STATUS_FILTERS.filter(([v]) => v !== 'DRAFT')) : h('div.tiny', 'Hiển thị các đơn đã duyệt của cả ba điểm trường.'),

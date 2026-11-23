@@ -55,6 +55,9 @@ export async function render() {
     link('#/sessions', 'shield', 'Thiết bị đang đăng nhập'),
     link('#/password', 'settings', 'Đổi mật khẩu'),
     has('PRINCIPAL') ? link('#/delegation', 'users', 'Ủy quyền duyệt đơn') : null,
+    has('PRINCIPAL') || has('VICE') || has('LEADER') ? link('#/reports', 'list', 'Báo cáo & sổ nghỉ', 'Thống kê ngày nghỉ, tải Excel để xếp loại thi đua') : null,
+    has('PRINCIPAL') || has('VICE') ? link('#/announcements', 'bell', 'Thông báo của BGH', 'Gửi thông báo tới giáo viên, nhân viên; thông báo định kỳ') : null,
+    link('#/support', 'shield', 'Hỗ trợ', 'Câu hỏi thường gặp, gửi yêu cầu cho quản trị viên'),
     isAdmin() ? link('#/admin', 'settings', 'Quản trị hệ thống') : null));
 
   page.append(h('button.btn.outline.block', {
