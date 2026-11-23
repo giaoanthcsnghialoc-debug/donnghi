@@ -61,9 +61,12 @@ export async function render() {
     isAdmin() ? link('#/admin', 'settings', 'Quản trị hệ thống') : null));
 
   page.append(h('button.btn.outline.block', {
-    onclick: async () => {
-      try { await api('auth.logout'); } catch (e) { /* bỏ qua */ }
-      auth.token = ''; state.boot = null; location.hash = '#/'; route();
+    onclick: () => {
+      // Thoát ngay trên máy; báo máy chủ hủy phiên ở nền, không bắt người dùng chờ.
+      const t = auth.token;
+      auth.token = ''; state.boot = null;
+      if (t) api('auth.logout', {}, { token: t }).catch(() => {});
+      location.hash = '#/'; route();
     }
   }, icon('logout'), 'Đăng xuất'));
   page.append(h('p.tiny', { style: { textAlign: 'center' } }, 'Phiên bản ' + b.version + (b.env === 'DEMO' ? ' · DEMO' : '')));

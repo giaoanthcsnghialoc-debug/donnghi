@@ -1,7 +1,7 @@
 // Đăng nhập, quên mật khẩu, đặt lại mật khẩu, đổi mật khẩu (bắt buộc lần đầu).
 import { api, auth } from '../api.js';
 import { h, clear, toast, busy } from '../ui.js';
-import { state, route, layout, go, refreshBoot } from '../app.js';
+import { state, route, layout, go, refreshBoot, applyTheme } from '../app.js';
 
 const app = () => document.getElementById('app');
 let bootInfo = null;
@@ -36,7 +36,8 @@ export async function renderLogin() {
       try {
         const r = await api('auth.login', { username: user.value.trim(), password: pass.value, deviceLabel: deviceLabel(), userAgent: navigator.userAgent });
         auth.token = r.token;
-        state.boot = null;
+        state.boot = r.boot || null;
+        if (state.boot) applyTheme(state.boot.user.themePref);
         if (location.hash.startsWith('#/reset') || location.hash === '#/forgot') location.hash = '#/';
         await route();
       } catch (ex) {
@@ -126,5 +127,5 @@ export function renderChangePassword(forced) {
   forced ? h('p.muted.small', 'Vì lý do bảo mật, bạn cần đổi mật khẩu tạm do quản trị viên cấp trước khi sử dụng.') : null,
   h('div.field', h('label', forced ? 'Mật khẩu tạm' : 'Mật khẩu hiện tại'), old), ...f.nodes, err,
   h('button.btn.primary.block', { type: 'submit' }, 'Lưu mật khẩu'),
-  forced ? h('button.btn.ghost.block', { type: 'button', onclick: async () => { try { await api('auth.logout'); } catch (e) { /* bỏ qua */ } auth.token = ''; state.boot = null; route(); } }, 'Đăng xuất') : null));
+  forced ? h('button.btn.ghost.block', { type: 'button', onclick: () => { const t = auth.token; auth.token = ''; state.boot = null; if (t) api('auth.logout', {}, { token: t }).catch(() => {}); route(); } }, 'Đăng xuất') : null));
 }

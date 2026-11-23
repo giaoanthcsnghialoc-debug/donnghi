@@ -26,7 +26,7 @@ function rid() {
  */
 export async function api(action, payload = {}, opts = {}) {
   if (!API_URL) throw new ApiError('CONFIG', 'Chưa cấu hình địa chỉ máy chủ (js/config.js).');
-  const body = { action, token: auth.token, payload };
+  const body = { action, token: opts.token !== undefined ? opts.token : auth.token, payload };
   if (opts.write) body.requestId = opts.requestId || rid();
   let res;
   const tries = opts.write ? 2 : 3;

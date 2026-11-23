@@ -98,11 +98,8 @@ export function go(hash) { if (location.hash === hash) route(); else location.ha
 
 /* ---------------- Khởi động và định tuyến ---------------- */
 export async function refreshBoot() {
-  state.boot = await api('me.bootstrap');
+  state.boot = await api('me.bootstrap');   // đã kèm số đơn chờ duyệt
   applyTheme(state.boot.user.themePref);
-  if (state.boot.canDecide) {
-    try { state.boot.pendingCount = (await api('leave.pending')).length; } catch (e) { state.boot.pendingCount = 0; }
-  }
   return state.boot;
 }
 

@@ -4,7 +4,7 @@ import { h, clear, icon, toast, busy, askText, statusBadge, fmtDays, fmtSize, vi
 import { state, layout, go, refreshBoot } from '../app.js';
 import { stampPdf } from '../pdftools.js';
 import { placeSignature } from './signPlacer.js';
-import { previewLeave } from './preview.js';
+import { previewLeave, ensureSignature } from './preview.js';
 
 const DECISION_VI = { APPROVE: 'Phê duyệt', REJECT: 'Từ chối', REQUEST_CHANGES: 'Yêu cầu bổ sung', CANCEL: 'Hủy đơn' };
 
@@ -54,7 +54,10 @@ export async function signAsSender(L) {
 
 /** Gửi đơn nháp: đơn theo mẫu được xem trước (đã chèn chữ ký) rồi mới gửi. */
 export async function sendDraft(L) {
-  if (L.sourceType !== 'UPLOAD' && !await previewLeave({ id: L.id })) return;
+  if (L.sourceType !== 'UPLOAD') {
+    if (!await ensureSignature()) return;
+    if (!await previewLeave({ id: L.id })) return;
+  }
   let S;
   try { S = await busy('Đang gửi…', () => api('leave.submit', { id: L.id }, { write: true })); } catch (e) { return; }
   await signAsSender(S);
@@ -62,6 +65,7 @@ export async function sendDraft(L) {
 
 /** Đơn đang chờ ký người gửi: xem trước rồi chèn chữ ký. */
 export async function signWithPreview(L) {
+  if (!await ensureSignature()) return;
   if (L.sourceType !== 'UPLOAD' && !await previewLeave({ id: L.id })) return;
   await signAsSender(L);
 }

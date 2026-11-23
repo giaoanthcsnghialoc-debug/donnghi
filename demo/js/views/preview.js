@@ -1,7 +1,33 @@
 // Xem trước đơn theo mẫu của trường (đã chèn sẵn chữ ký người làm đơn) để rà soát trước khi gửi duyệt.
-import { api, base64ToBytes } from '../api.js';
+import { api, base64ToBytes, bytesToBase64 } from '../api.js';
 import { h, sheet, busy, toast, icon } from '../ui.js';
 import { pdfJs } from '../pdftools.js';
+import { state } from '../app.js';
+import { mountSignatureTool } from './signatureTool.js';
+
+/**
+ * Bảo đảm người dùng đã có ảnh chữ ký. Chưa có (hoặc force = muốn đổi) thì mở ngay khung tạo chữ ký,
+ * lưu xong quay lại đúng chỗ đang làm, không phải rời trang đơn.
+ */
+export function ensureSignature(force = false) {
+  if (!force && state.boot && state.boot.user.hasSignature) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    let done = false;
+    sheet(force ? 'Đổi chữ ký' : 'Tạo chữ ký của bạn', (box, close) => {
+      if (!force) box.append(h('div.alert.info', 'Bạn chưa có ảnh chữ ký. Tạo một lần, các đơn sau hệ thống tự chèn.'));
+      const card = h('div.stack');
+      box.append(card);
+      mountSignatureTool(card, async (png) => {
+        try {
+          await busy('Đang lưu chữ ký…', () => api('me.signature.upload', { pngBase64: bytesToBase64(png) }, { write: true }));
+        } catch (e) { return; }
+        if (state.boot) state.boot.user.hasSignature = true;
+        toast('Đã lưu chữ ký.', 'ok');
+        done = true; close(); resolve(true);
+      });
+    }, { full: true, onClose: () => { if (!done) resolve(false); } });
+  });
+}
 
 /**
  * params: tham số cho leave.preview (thường là { id }).
@@ -17,20 +43,20 @@ export async function previewLeave(params, { sendText = '', note = '', viewOnly 
   let doc;
   try { doc = await lib.getDocument({ data: bytes.slice() }).promise; } catch (e) { toast('Không hiển thị được đơn: ' + e.message, 'bad'); return false; }
 
-  if (!sendText) sendText = r.hasSignature ? 'Chèn chữ ký và gửi' : 'Tạo chữ ký';
+  if (!sendText) sendText = 'Gửi duyệt';
   return new Promise((resolve) => {
     let answered = false;
     sheet('Xem trước đơn', (box, close) => {
       const pages = h('div.preview-pages');
       box.append(
-        r.hasSignature ? h('div.alert.info', note || (viewOnly ? 'Đơn sẽ trông như thế này khi gửi (đã chèn chữ ký của bạn).' : 'Đây là đơn sẽ gửi đi, đã chèn chữ ký của bạn. Rà soát kỹ, nếu sai bấm Sửa lại.'))
+        r.hasSignature ? h('div.alert.info', note || (viewOnly ? 'Đơn sẽ trông như thế này khi gửi (đã chèn chữ ký của bạn).' : 'Đã chèn chữ ký của bạn. Rà soát kỹ nội dung: đúng thì bấm Gửi duyệt, sai thì bấm Sửa lại.'))
           : h('div.alert.warn', viewOnly ? 'Bạn chưa có ảnh chữ ký nên ô chữ ký đang trống. Vào Cá nhân → Ảnh chữ ký để tạo.' : 'Bạn chưa có ảnh chữ ký nên ô chữ ký đang trống. Bấm ' + sendText + ', tạo chữ ký xong hệ thống đưa bạn quay lại đơn để ký và gửi.'),
         pages,
         h('div.tiny.muted', { style: { textAlign: 'center', marginBottom: '8px' } }, 'Chạm vào trang đơn để phóng to, chạm lần nữa để thu nhỏ.'),
         viewOnly ? h('div.btn-row.preview-actions', h('button.btn.outline', { onclick: () => { answered = true; close(); resolve(false); } }, 'Đóng')) :
         h('div.btn-row.preview-actions',
           h('button.btn.outline', { onclick: () => { answered = true; close(); resolve(false); } }, 'Sửa lại'),
-          h('button.btn.primary', { onclick: () => { answered = true; close(); resolve(true); } }, icon('pen'), sendText)));
+          h('button.btn.primary', { onclick: () => { answered = true; close(); resolve(true); } }, icon('send'), sendText)));
       (async () => {
         await new Promise((ok) => requestAnimationFrame(() => ok()));
         const width = Math.min((pages.clientWidth || 380) - 20, 800);
