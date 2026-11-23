@@ -174,6 +174,27 @@ export async function render(id) {
   page.append(h('section.card.stack', h('h2', 'Tệp đính kèm (giấy khám, giấy mời…)'), attBox));
   drawAtt();
 
+  // Chữ ký người làm đơn: luôn hiện để giáo viên biết chữ ký nào sẽ được chèn vào đơn.
+  const sigBox = h('div.stack');
+  const sigCard = h('section.card.stack', h('h2', 'Chữ ký người làm đơn'), sigBox);
+  page.append(sigCard);
+  const toSignature = async () => {
+    let back = '#/new';
+    if (!validate()) { try { await busy('Đang lưu nháp…', save); back = '#/leave/' + f.id; } catch (e) { return; } }
+    else toast('Đơn chưa điền đủ nên chưa lưu nháp; tạo chữ ký xong thầy/cô điền lại đơn.', 'warn');
+    try { sessionStorage.setItem('dn_after_sig', back); } catch (x) { /* bỏ qua */ }
+    go('#/signature');
+  };
+  api('me.signature.get').then((r) => {
+    if (!sigCard.isConnected) return;
+    clear(sigBox, r.pngBase64
+      ? [h('img.sig-preview', { src: 'data:image/png;base64,' + r.pngBase64, alt: 'Chữ ký của bạn' }),
+        h('div.tiny', 'Chữ ký này sẽ được chèn vào ô Người làm đơn khi bấm Xem đơn & chèn chữ ký.'),
+        h('button.btn.outline.sm', { type: 'button', onclick: toSignature }, icon('pen'), 'Đổi chữ ký')]
+      : [h('div.alert.warn', 'Bạn chưa có ảnh chữ ký. Tạo chữ ký một lần, các lần sau hệ thống tự chèn.'),
+        h('button.btn.primary.block', { type: 'button', onclick: toSignature }, icon('pen'), 'Tạo chữ ký')]);
+  }).catch(() => {});
+
   // Nút
   const payload = () => ({
     id: f.id, rowVersion: f.rowVersion, sourceType: f.sourceType, leaveTypeId: f.leaveTypeId, otherNote: f.otherNote,
@@ -210,7 +231,7 @@ export async function render(id) {
   });
   refreshSend = () => {
     const up = f.sourceType === 'UPLOAD';
-    sendBtn.replaceChildren(icon(up ? 'send' : 'eye'), up ? 'Gửi duyệt' : 'Xem đơn và gửi');
+    sendBtn.replaceChildren(icon(up ? 'send' : 'pen'), up ? 'Gửi duyệt' : 'Xem đơn & chèn chữ ký');
   };
   refreshSend();
   if (!page.parentNode) return;

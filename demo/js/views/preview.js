@@ -7,7 +7,7 @@ import { pdfJs } from '../pdftools.js';
  * params: tham số cho leave.preview (thường là { id }).
  * Trả về true nếu người dùng bấm nút gửi, false nếu bấm Sửa lại / đóng.
  */
-export async function previewLeave(params, { sendText = 'Gửi duyệt', note = '', viewOnly = false } = {}) {
+export async function previewLeave(params, { sendText = '', note = '', viewOnly = false } = {}) {
   let r;
   try {
     r = await busy('Đang tạo đơn để xem trước…', () => api('leave.preview', params));
@@ -17,19 +17,20 @@ export async function previewLeave(params, { sendText = 'Gửi duyệt', note = 
   let doc;
   try { doc = await lib.getDocument({ data: bytes.slice() }).promise; } catch (e) { toast('Không hiển thị được đơn: ' + e.message, 'bad'); return false; }
 
+  if (!sendText) sendText = r.hasSignature ? 'Chèn chữ ký và gửi' : 'Tạo chữ ký';
   return new Promise((resolve) => {
     let answered = false;
     sheet('Xem trước đơn', (box, close) => {
       const pages = h('div.preview-pages');
       box.append(
         r.hasSignature ? h('div.alert.info', note || (viewOnly ? 'Đơn sẽ trông như thế này khi gửi (đã chèn chữ ký của bạn).' : 'Đây là đơn sẽ gửi đi, đã chèn chữ ký của bạn. Rà soát kỹ, nếu sai bấm Sửa lại.'))
-          : h('div.alert.warn', viewOnly ? 'Bạn chưa có ảnh chữ ký nên ô chữ ký đang trống. Vào Cá nhân → Ảnh chữ ký để tạo.' : 'Bạn chưa có ảnh chữ ký nên ô chữ ký đang trống. Bấm ' + sendText + ', hệ thống sẽ đưa bạn tới trang tạo chữ ký rồi quay lại.'),
+          : h('div.alert.warn', viewOnly ? 'Bạn chưa có ảnh chữ ký nên ô chữ ký đang trống. Vào Cá nhân → Ảnh chữ ký để tạo.' : 'Bạn chưa có ảnh chữ ký nên ô chữ ký đang trống. Bấm ' + sendText + ', tạo chữ ký xong hệ thống đưa bạn quay lại đơn để ký và gửi.'),
         pages,
         h('div.tiny.muted', { style: { textAlign: 'center', marginBottom: '8px' } }, 'Chạm vào trang đơn để phóng to, chạm lần nữa để thu nhỏ.'),
         viewOnly ? h('div.btn-row.preview-actions', h('button.btn.outline', { onclick: () => { answered = true; close(); resolve(false); } }, 'Đóng')) :
         h('div.btn-row.preview-actions',
           h('button.btn.outline', { onclick: () => { answered = true; close(); resolve(false); } }, 'Sửa lại'),
-          h('button.btn.primary', { onclick: () => { answered = true; close(); resolve(true); } }, icon('send'), sendText)));
+          h('button.btn.primary', { onclick: () => { answered = true; close(); resolve(true); } }, icon('pen'), sendText)));
       (async () => {
         await new Promise((ok) => requestAnimationFrame(() => ok()));
         const width = Math.min((pages.clientWidth || 380) - 20, 800);

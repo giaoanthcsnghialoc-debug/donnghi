@@ -62,7 +62,7 @@ export async function sendDraft(L) {
 
 /** Đơn đang chờ ký người gửi: xem trước rồi chèn chữ ký. */
 export async function signWithPreview(L) {
-  if (L.sourceType !== 'UPLOAD' && !await previewLeave({ id: L.id }, { sendText: 'Ký và gửi' })) return;
+  if (L.sourceType !== 'UPLOAD' && !await previewLeave({ id: L.id })) return;
   await signAsSender(L);
 }
 
