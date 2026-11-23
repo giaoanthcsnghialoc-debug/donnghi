@@ -1,5 +1,5 @@
 // Service worker: lưu sẵn giao diện để mở nhanh. Không bao giờ lưu dữ liệu API.
-const VERSION = 'donnghi-0.4.4';
+const VERSION = 'donnghi-0.4.5';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/app.js', 'js/api.js', 'js/ui.js', 'js/config.js', 'js/leavecalc.js', 'js/pdftools.js',

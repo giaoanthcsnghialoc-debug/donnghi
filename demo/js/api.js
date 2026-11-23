@@ -49,6 +49,30 @@ export async function api(action, payload = {}, opts = {}) {
   return res.data;
 }
 
+/* ---------- Hiện ngay dữ liệu lần trước, rồi cập nhật khi máy chủ trả về (đỡ phải nhìn vòng quay) ---------- */
+const SWR = 'dn_swr:';
+const swrKey = (action, payload) => SWR + String(auth.token || '').slice(0, 10) + ':' + action + ':' + JSON.stringify(payload || {});
+export function swrGet(action, payload) {
+  try { const v = localStorage.getItem(swrKey(action, payload)); return v ? JSON.parse(v) : null; } catch (e) { return null; }
+}
+export function swrPut(action, payload, data) {
+  try { localStorage.setItem(swrKey(action, payload), JSON.stringify(data)); } catch (e) { /* đầy bộ nhớ: bỏ qua */ }
+}
+export function swrClear() {
+  try { Object.keys(localStorage).filter((k) => k.startsWith(SWR)).forEach((k) => localStorage.removeItem(k)); } catch (e) { /* bỏ qua */ }
+}
+/** onData(data, fromCache) được gọi ngay với dữ liệu cũ (nếu có), rồi gọi lại khi có dữ liệu mới khác đi. */
+export async function apiSWR(action, payload, onData) {
+  const old = swrGet(action, payload);
+  if (old) onData(old, true);
+  let fresh;
+  try { fresh = await api(action, payload); } catch (e) { if (old && e.code === 'NETWORK') return old; throw e; }
+  const same = old && JSON.stringify(old) === JSON.stringify(fresh);
+  try { localStorage.setItem(swrKey(action, payload), JSON.stringify(fresh)); } catch (e) { swrClear(); }
+  if (!same) onData(fresh, false);
+  return fresh;
+}
+
 function bytesToBase64(bytes) {
   let s = '';
   const step = 0x8000;

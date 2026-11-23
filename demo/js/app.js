@@ -1,5 +1,5 @@
 // Khung ứng dụng: trạng thái, định tuyến theo #hash, thanh điều hướng dưới theo vai trò, giao diện sáng/tối.
-import { api, auth, setAuthHandlers } from './api.js';
+import { api, auth, setAuthHandlers, swrGet, swrPut, swrClear } from './api.js';
 import { h, clear, icon, toast } from './ui.js';
 import { ENV, API_URL } from './config.js';
 import * as Auth from './views/auth.js';
@@ -99,6 +99,7 @@ export function go(hash) { if (location.hash === hash) route(); else location.ha
 /* ---------------- Khởi động và định tuyến ---------------- */
 export async function refreshBoot() {
   state.boot = await api('me.bootstrap');   // đã kèm số đơn chờ duyệt
+  swrPut('me.bootstrap', {}, state.boot);
   applyTheme(state.boot.user.themePref);
   return state.boot;
 }
@@ -146,7 +147,15 @@ export async function route() {
   if (hash === '#/forgot') return Auth.renderForgot();
   if (!auth.token) return Auth.renderLogin();
   try {
-    if (!state.boot) await refreshBoot();
+    if (!state.boot) {
+      // Mở ứng dụng: dùng ngay thông tin lần trước, cập nhật lại ở nền (không bắt chờ máy chủ).
+      const cached = swrGet('me.bootstrap', {});
+      if (cached && cached.user) {
+        state.boot = cached;
+        applyTheme(cached.user.themePref);
+        refreshBoot().then(() => updateBadges()).catch(() => {});
+      } else await refreshBoot();
+    }
   } catch (e) {
     if (!auth.token) return Auth.renderLogin();
     return renderFatal(e.message);
@@ -173,6 +182,7 @@ function renderFatal(msg) {
 
 setAuthHandlers((msg) => {
   state.boot = null;
+  swrClear();
   toast(msg || 'Phiên đăng nhập đã hết.', 'bad');
   Auth.renderLogin();
 }, () => { if (state.boot) state.boot.user.mustChangePassword = true; Auth.renderChangePassword(true); });

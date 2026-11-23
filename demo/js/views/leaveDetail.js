@@ -1,10 +1,10 @@
 // Chi tiết đơn, lịch sử, các nút thao tác theo quyền; luồng chèn chữ ký của người gửi và người duyệt.
 import { api, uploadFile, downloadFile, base64ToBytes } from '../api.js';
 import { h, clear, icon, toast, busy, askText, statusBadge, fmtDays, fmtSize, viDate, viDateTime, openBytes, saveBytes, SESSION_VI, confirmSheet } from '../ui.js';
-import { state, layout, go, refreshBoot } from '../app.js';
+import { state, layout, go, refreshBoot, route } from '../app.js';
 import { stampPdf } from '../pdftools.js';
 import { placeSignature } from './signPlacer.js';
-import { previewLeave, ensureSignature } from './preview.js';
+import { previewLeave, ensureSignature, viewPdf } from './preview.js';
 
 const DECISION_VI = { APPROVE: 'Phê duyệt', REJECT: 'Từ chối', REQUEST_CHANGES: 'Yêu cầu bổ sung', CANCEL: 'Hủy đơn' };
 
@@ -72,6 +72,7 @@ export async function signWithPreview(L) {
 
 /** Người duyệt chèn chữ ký phê duyệt. */
 async function approveFlow(L) {
+  let res = null;
   try {
     if (L.sourceType === 'UPLOAD') {
       const { src, sig, stamp } = await busy('Đang mở đơn…', async () => ({
@@ -83,18 +84,20 @@ async function approveFlow(L) {
       if (stamp) items.push({ key: 'stamp', label: 'Con dấu', png: stamp, defaultPos: { x: 0.04, y: 0.68, w: 0.2 }, square: true });
       const placed = await placeSignature(src.bytes, items, 'Chèn chữ ký phê duyệt');
       if (!placed) return;
-      await busy('Đang chèn chữ ký và duyệt…', async (say) => {
+      res = await busy('Đang chèn chữ ký và duyệt…', async (say) => {
         const pngs = { sig, stamp };
         const pdf = await stampPdf(src.bytes, placed.map((p) => ({ pngBytes: pngs[p.key], ...p })));
         const up = await uploadFile(new Uint8Array(pdf), (L.code || 'don') + '_duyet.pdf', 'signed-pdf', (x) => say('Đang tải lên ' + Math.round(x * 100) + '%'));
-        await api('leave.approve', { id: L.id, rowVersion: L.rowVersion, signedFileId: up.fileId, placement: placed[0] }, { write: true });
+        return api('leave.approve', { id: L.id, rowVersion: L.rowVersion, signedFileId: up.fileId, placement: placed[0], returnPdf: true }, { write: true });
       });
     } else {
-      await busy('Đang chèn chữ ký và duyệt…', () => api('leave.approve', { id: L.id, rowVersion: L.rowVersion }, { write: true }));
+      res = await busy('Đang chèn chữ ký và duyệt…', () => api('leave.approve', { id: L.id, rowVersion: L.rowVersion, returnPdf: true }, { write: true }));
     }
     toast('Đã phê duyệt và ký đơn ' + L.code + '.', 'ok');
-    await refreshBoot();
-    go(state.boot.canDecide ? '#/approvals' : '#/');
+    state.boot.pendingCount = Math.max(0, (state.boot.pendingCount || 1) - 1);
+    // Ở lại trang đơn vừa duyệt và mở ngay đơn đã duyệt để xem.
+    if (location.hash === '#/leave/' + L.id) route(); else go('#/leave/' + L.id);
+    if (res && res.finalPdf) viewPdf(base64ToBytes(res.finalPdf.dataBase64), 'Đơn đã duyệt ' + (L.code || ''), res.finalPdf.fileName);
   } catch (e) {
     handleSignError(e, L.id);
   }
@@ -102,7 +105,7 @@ async function approveFlow(L) {
 
 async function openPdf(L, which, version) {
   const f = await busy('Đang tải PDF…', (say) => downloadFile('leave.pdf', { id: L.id, which, version }, (p) => say('Đang tải ' + Math.round(p * 100) + '%')));
-  openBytes(f.bytes, 'application/pdf', f.fileName);
+  viewPdf(f.bytes, which === 'final' ? 'Đơn đã duyệt ' + (L.code || '') : 'Xem đơn', f.fileName);
 }
 
 export async function render(id) {

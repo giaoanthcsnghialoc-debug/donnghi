@@ -1,6 +1,6 @@
 // Xem trước đơn theo mẫu của trường (đã chèn sẵn chữ ký người làm đơn) để rà soát trước khi gửi duyệt.
 import { api, base64ToBytes, bytesToBase64 } from '../api.js';
-import { h, sheet, busy, toast, icon } from '../ui.js';
+import { h, sheet, busy, toast, icon, saveBytes } from '../ui.js';
 import { pdfJs } from '../pdftools.js';
 import { state } from '../app.js';
 import { mountSignatureTool } from './signatureTool.js';
@@ -77,4 +77,35 @@ export async function previewLeave(params, { sendText = '', note = '', viewOnly 
       })().catch((e) => toast('Lỗi hiển thị trang: ' + e.message, 'bad'));
     }, { full: true, onClose: () => { if (!answered) resolve(false); } });
   });
+}
+
+/** Xem một PDF ngay trong ứng dụng (không mở cửa sổ mới, tránh bị trình duyệt chặn). */
+export async function viewPdf(bytes, title, fileName) {
+  const lib = await pdfJs();
+  let doc;
+  try { doc = await lib.getDocument({ data: bytes.slice() }).promise; } catch (e) { toast('Không hiển thị được PDF: ' + e.message, 'bad'); return; }
+  sheet(title || 'Xem đơn', (box, close) => {
+    const pages = h('div.preview-pages');
+    box.append(pages,
+      h('div.tiny.muted', { style: { textAlign: 'center', marginBottom: '8px' } }, 'Chạm vào trang để phóng to, chạm lần nữa để thu nhỏ.'),
+      h('div.btn-row.preview-actions',
+        h('button.btn.outline', { onclick: () => saveBytes(bytes, 'application/pdf', fileName || 'don.pdf') }, icon('download'), 'Tải về máy'),
+        h('button.btn.primary', { onclick: () => close() }, 'Đóng')));
+    (async () => {
+      await new Promise((ok) => requestAnimationFrame(() => ok()));
+      const width = Math.min((pages.clientWidth || 380) - 20, 800);
+      const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+      for (let i = 1; i <= doc.numPages; i++) {
+        const pg = await doc.getPage(i);
+        const vp0 = pg.getViewport({ scale: 1 });
+        const vp = pg.getViewport({ scale: (width / vp0.width) * Math.min(dpr * 2, 4) });
+        const c = h('canvas.preview-page');
+        c.width = vp.width; c.height = vp.height; c.style.width = width + 'px';
+        let big = false;
+        c.onclick = () => { big = !big; c.style.width = (big ? width * 2 : width) + 'px'; pages.style.alignItems = big ? 'flex-start' : 'center'; };
+        pages.append(c);
+        await pg.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+      }
+    })().catch((e) => toast('Lỗi hiển thị trang: ' + e.message, 'bad'));
+  }, { full: true });
 }

@@ -1,5 +1,5 @@
 // Cá nhân: thông tin, giao diện sáng/tối, ảnh chữ ký, thiết bị đang đăng nhập, phép năm, đăng xuất.
-import { api, auth, bytesToBase64 } from '../api.js';
+import { api, auth, bytesToBase64, swrClear } from '../api.js';
 import { h, clear, icon, toast, busy, viDateTime, fmtDays } from '../ui.js';
 import { state, layout, go, applyTheme, refreshBoot, route, isAdmin, has } from '../app.js';
 import { mountSignatureTool } from './signatureTool.js';
@@ -64,7 +64,7 @@ export async function render() {
     onclick: () => {
       // Thoát ngay trên máy; báo máy chủ hủy phiên ở nền, không bắt người dùng chờ.
       const t = auth.token;
-      auth.token = ''; state.boot = null;
+      swrClear(); auth.token = ''; state.boot = null;
       if (t) api('auth.logout', {}, { token: t }).catch(() => {});
       location.hash = '#/'; route();
     }

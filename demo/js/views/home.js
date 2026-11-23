@@ -1,5 +1,5 @@
 // Trang chủ theo vai trò: giáo viên, người duyệt (HT/PHT được ủy quyền), quản lý (PHT, tổ trưởng, HT), quản trị.
-import { api } from '../api.js';
+import { api, apiSWR } from '../api.js';
 import { h, icon, statusBadge, fmtDays, viDateTime, SESSION_VI } from '../ui.js';
 import { state, layout, isManager, isAdmin, has, updateBadges } from '../app.js';
 
@@ -9,6 +9,7 @@ export function leaveRow(l, extra) {
       h('div.row.between', h('span.title', l.fullName && extra !== 'mine' ? l.fullName : l.typeName || 'Đơn nháp'), statusBadge(l.status, l.statusLabel)),
       h('div.sub', (extra !== 'mine' ? l.typeName + ' · ' : '') + (l.period || 'Chưa chọn thời gian') + (l.days ? ' · ' + fmtDays(l.days) : '')),
       extra === 'mine' && l.code ? h('div.tiny', 'Mã đơn ' + l.code) : null,
+      extra === 'done' && l.decidedAt ? h('div.tiny', 'Xử lý lúc ' + viDateTime(l.decidedAt) + (l.code ? ' · ' + l.code : '')) : null,
       extra === 'waiting' && l.waitingHours >= 0 ? h('div.tiny', 'Chờ ' + l.waitingHours + ' giờ' + (l.isRetroactive ? ' · Đơn nộp sau' : '')) : null,
       extra === 'today' ? h('div.tiny', 'Hôm nay nghỉ buổi: ' + l.todaySessions.map((s) => SESSION_VI[s].toLowerCase()).join(', ') + (l.campusNames.length ? ' · ' + l.campusNames.join(', ') : '')) : null),
     h('span.chev', icon('chev')));
@@ -18,7 +19,10 @@ export async function render() {
   const b = state.boot;
   const page = layout(b.settings.SCHOOL_NAME || 'Đơn xin nghỉ');
   page.append(h('div.splash', h('div.spinner')));
-  const d = await api('dash.home');
+  await apiSWR('dash.home', {}, (d) => { if (page.isConnected) drawHome(page, b, d); });
+}
+
+function drawHome(page, b, d) {
   b.unread = d.unread;
   if (d.decider) b.pendingCount = d.decider.pendingCount;
   updateBadges();

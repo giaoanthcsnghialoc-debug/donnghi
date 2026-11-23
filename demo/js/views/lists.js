@@ -1,7 +1,8 @@
 // Danh sách: đơn của tôi (danh sách + lịch tháng), hàng chờ duyệt, đơn toàn trường, thông báo.
-import { api } from '../api.js';
-import { h, clear, icon, viDateTime, todayStr, busy, toast, confirmSheet } from '../ui.js';
+import { api, apiSWR, downloadFile } from '../api.js';
+import { h, clear, icon, viDateTime, todayStr, busy, toast, confirmSheet, openBytes } from '../ui.js';
 import { sendDraft, signWithPreview } from './leaveDetail.js';
+import { viewPdf } from './preview.js';
 import { state, layout, go, has, updateBadges } from '../app.js';
 import { leaveRow } from './home.js';
 
@@ -15,7 +16,7 @@ export async function renderMine() {
   const body = h('div');
   page.append(viewSeg, filters, body, h('a.btn.primary.block', { href: '#/new' }, icon('plus'), 'Tạo đơn mới'));
   body.append(h('div.splash', h('div.spinner')));
-  let all = await api('leave.listMine', {});
+  let all = null;
   const reload = async () => { all = await api('leave.listMine', {}); draw(); };
   // Đơn chưa gửi: có nút thao tác ngay trên danh sách.
   const mineRow = (l) => {
@@ -50,7 +51,7 @@ export async function renderMine() {
       clear(body, calendar(all, month, (m) => { month = m; draw(); }));
     }
   };
-  draw();
+  await apiSWR('leave.listMine', {}, (rows) => { all = rows; if (page.isConnected) draw(); });
 }
 
 /** Lịch tháng: chấm màu theo trạng thái đơn, chạm ngày để mở đơn. */
@@ -94,13 +95,38 @@ function calendar(leaves, month, onMonth) {
 export async function renderApprovals() {
   const page = layout('Duyệt đơn');
   if (!state.boot.canDecide) { page.append(h('div.alert.info', 'Bạn không có quyền duyệt đơn (chỉ Hiệu trưởng hoặc PHT đang được ủy quyền).')); return; }
-  page.append(h('div.splash', h('div.spinner')));
-  const rows = await api('leave.pending');
-  state.boot.pendingCount = rows.length;
-  updateBadges();
-  page.replaceChildren(
-    h('p.muted.small', rows.length ? rows.length + ' đơn đang chờ, cũ nhất ở trên.' : ''),
-    rows.length ? h('div.list', rows.map((l) => leaveRow(l, 'waiting'))) : h('div.empty', 'Không có đơn nào đang chờ duyệt.'));
+  let tab = sessionStorage.getItem('dn_appr_tab') || 'wait';
+  let pending = null, recent = null;
+  const seg = h('div.seg');
+  const body = h('div', { style: { marginTop: '12px' } }, h('div.splash', h('div.spinner')));
+  page.append(seg, body);
+  const draw = () => {
+    if (!page.isConnected) return;
+    clear(seg, [['wait', 'Chờ duyệt' + (pending ? ' (' + pending.length + ')' : '')], ['done', 'Đã xử lý gần đây']].map(([v, l]) =>
+      h('button' + (tab === v ? '.on' : ''), { type: 'button', onclick: () => { tab = v; sessionStorage.setItem('dn_appr_tab', v); draw(); if (v === 'done' && !recent) loadRecent(); } }, l)));
+    if (tab === 'wait') {
+      if (!pending) return clear(body, h('div.splash', h('div.spinner')));
+      clear(body, h('p.muted.small', pending.length ? pending.length + ' đơn đang chờ, cũ nhất ở trên.' : ''),
+        pending.length ? h('div.list', pending.map((l) => leaveRow(l, 'waiting'))) : h('div.empty', 'Không có đơn nào đang chờ duyệt.'));
+    } else {
+      if (!recent) return clear(body, h('div.splash', h('div.spinner')));
+      clear(body, h('p.muted.small', 'Các đơn bạn đã duyệt, từ chối hoặc yêu cầu bổ sung trong 30 ngày qua, mới nhất ở trên.'),
+        recent.length ? h('div.list', recent.map((l) => h('div.row-with-actions', leaveRow(l, 'done'),
+          l.hasFinalPdf ? h('div.row-actions', h('button.btn.sm.outline', { type: 'button', onclick: () => openFinal(l) }, icon('eye'), 'Xem đơn đã duyệt')) : null)))
+          : h('div.empty', 'Chưa xử lý đơn nào trong 30 ngày qua.'));
+    }
+  };
+  const loadRecent = () => apiSWR('leave.recentDecided', {}, (r) => { recent = r; draw(); }).catch(() => {});
+  draw();
+  if (tab === 'done') loadRecent();
+  await apiSWR('leave.pending', {}, (rows) => { pending = rows; state.boot.pendingCount = rows.length; updateBadges(); draw(); });
+}
+
+async function openFinal(l) {
+  try {
+    const f = await busy('Đang tải đơn…', (say) => downloadFile('leave.pdf', { id: l.id, which: 'final' }, (p) => say('Đang tải ' + Math.round(p * 100) + '%')));
+    viewPdf(f.bytes, 'Đơn đã duyệt ' + (l.code || ''), f.fileName);
+  } catch (e) { /* đã báo lỗi */ }
 }
 
 export async function renderSchool() {
@@ -137,7 +163,10 @@ export async function renderSchool() {
 export async function renderNotifications() {
   const page = layout('Thông báo');
   page.append(h('div.splash', h('div.spinner')));
-  const rows = await api('notify.list', { limit: 100 });
+  await apiSWR('notify.list', { limit: 100 }, (rows) => { if (page.isConnected) drawNotes(page, rows); });
+}
+
+function drawNotes(page, rows) {
   const unread = rows.filter((r) => !r.read).length;
   page.replaceChildren(
     unread ? h('button.btn.sm.outline', {
