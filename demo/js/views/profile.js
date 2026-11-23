@@ -8,7 +8,14 @@ import { roleName } from './home.js';
 export async function render() {
   const b = state.boot;
   const u = b.user;
-  const page = layout('Cá nhân');
+  const logout = () => {
+    // Thoát ngay trên máy; báo máy chủ hủy phiên ở nền, không bắt người dùng chờ.
+    const t = auth.token;
+    swrClear(); auth.token = ''; state.boot = null;
+    if (t) api('auth.logout', {}, { token: t }).catch(() => {});
+    location.hash = '#/'; route();
+  };
+  const page = layout('Cá nhân', { actions: h('button.btn.sm.top-logout', { type: 'button', onclick: logout }, icon('logout'), 'Đăng xuất') });
   const campus = b.campuses.filter((c) => u.campusIds.includes(c.id)).map((c) => c.name).join(', ');
   page.append(h('section.card',
     h('h2', u.fullName),
@@ -60,15 +67,6 @@ export async function render() {
     link('#/support', 'shield', 'Hỗ trợ', 'Câu hỏi thường gặp, gửi yêu cầu cho quản trị viên'),
     isAdmin() ? link('#/admin', 'settings', 'Quản trị hệ thống') : null));
 
-  page.append(h('button.btn.outline.block', {
-    onclick: () => {
-      // Thoát ngay trên máy; báo máy chủ hủy phiên ở nền, không bắt người dùng chờ.
-      const t = auth.token;
-      swrClear(); auth.token = ''; state.boot = null;
-      if (t) api('auth.logout', {}, { token: t }).catch(() => {});
-      location.hash = '#/'; route();
-    }
-  }, icon('logout'), 'Đăng xuất'));
   page.append(h('p.tiny', { style: { textAlign: 'center' } }, 'Phiên bản ' + b.version + (b.env === 'DEMO' ? ' · DEMO' : '')));
 }
 

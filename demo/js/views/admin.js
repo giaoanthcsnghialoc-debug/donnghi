@@ -199,7 +199,7 @@ export async function renderSettings() {
     h('section.card.stack', h('h2', 'Thông tin trường'),
       inp('SCHOOL_PARENT', 'Cơ quan chủ quản', 'Ví dụ: UBND xã …'), inp('SCHOOL_NAME', 'Tên trường'), inp('SCHOOL_PLACE', 'Địa danh ghi trên đơn', 'Ví dụ: Nghĩa Lộc')),
     h('section.card.stack', h('h2', 'Chế độ ký'), mode,
-      h('div.hint', 'Đặc tả: SmartCA là phương án ưu tiên. Chỉ chuyển sang ảnh chữ ký khi đã xác định SmartCA không khả thi. PDF luôn ghi rõ "xác nhận nội bộ bằng ảnh chữ ký – không phải chữ ký số".'),
+      h('div.hint', 'Đặc tả: SmartCA là phương án ưu tiên. Chỉ chuyển sang ảnh chữ ký khi đã xác định SmartCA không khả thi.'),
       !primary ? h('div.tiny', 'Chỉ quản trị viên chính đổi được chế độ ký.') : null),
     h('section.card.stack', h('h2', 'Hệ thống'),
       inp('FRONTEND_URL', 'Địa chỉ giao diện (GitHub Pages)', 'Dùng trong liên kết email, ví dụ https://tentaikhoan.github.io/donnghi/'),

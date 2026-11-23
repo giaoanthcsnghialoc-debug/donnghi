@@ -220,3 +220,7 @@ table.simple th { color: var(--text-2); font-weight: 600; }
 .card.stat { padding: 12px 14px; margin: 0; }
 .card.stat .big { font-size: 1.6rem; font-weight: 700; color: var(--primary); line-height: 1.2; margin-top: 2px; }
 details > summary { cursor: pointer; padding: 6px 0; }
+
+/* Nút Đăng xuất trên thanh tiêu đề trang Cá nhân */
+.topbar .top-logout { background: rgba(255, 255, 255, .16); color: #fff; border: 1px solid rgba(255, 255, 255, .45); gap: 6px; white-space: nowrap; flex: none; }
+.topbar .top-logout svg { width: 18px; height: 18px; }
