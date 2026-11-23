@@ -1,0 +1,86 @@
+{
+  "name": "Đơn xin nghỉ – THCS Nghĩa Lộc",
+  "short_name": "Đơn nghỉ",
+  "description": "Tạo, ký và duyệt đơn xin nghỉ trực tuyến của Trường THCS Nghĩa Lộc",
+  "lang": "vi",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1d4ed8",
+  "theme_color": "#1d4ed8",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "id": "./",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "categories": [
+    "education",
+    "productivity"
+  ],
+  "shortcuts": [
+    {
+      "name": "Tạo đơn xin nghỉ",
+      "short_name": "Tạo đơn",
+      "url": "./#/new",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Đơn của tôi",
+      "url": "./#/mine",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "icons/screens/home.jpg",
+      "sizes": "1080x2398",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "Trang chủ"
+    },
+    {
+      "src": "icons/screens/new.jpg",
+      "sizes": "1080x2398",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "Tạo đơn xin nghỉ"
+    }
+  ]
+}
