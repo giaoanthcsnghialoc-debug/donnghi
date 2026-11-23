@@ -23,7 +23,7 @@ function otsu(lum) {
  * Xử lý ảnh: điểm sáng hơn ngưỡng thành trong suốt; nét chữ giữ màu, chỉnh độ đậm; cắt sát chữ ký.
  * threshold: 0..255; strength: 0.5..2 (độ đậm nét); ink: 'original' | 'blue' | 'black'
  */
-export function removeBackground(srcCanvas, threshold, strength, ink) {
+export function removeBackground(srcCanvas, threshold, strength, ink, opts = {}) {
   const w = srcCanvas.width, hgt = srcCanvas.height;
   const src = srcCanvas.getContext('2d').getImageData(0, 0, w, hgt);
   const out = new ImageData(w, hgt);
@@ -37,17 +37,74 @@ export function removeBackground(srcCanvas, threshold, strength, ink) {
     a = Math.max(0, Math.min(1, a + 0.5));
     if (a <= 0.02) continue;
     a = Math.min(1, a * strength);
+    if (a < 0.12) continue;          // vệt mờ gần như trong suốt: bỏ, để không làm khung ảnh to ra
     let r = d[i], g = d[i + 1], b = d[i + 2];
     if (ink === 'blue') { r = 20; g = 45; b = 160; } else if (ink === 'black') { r = 15; g = 15; b = 20; } else {
       const k = Math.max(0.35, 1 - (strength - 1) * 0.5);   // đậm hơn thì tối màu hơn
       r *= k; g *= k; b *= k;
     }
     o[i] = r; o[i + 1] = g; o[i + 2] = b; o[i + 3] = Math.round(a * 255);
+    if (a < 0.35) continue;          // chỉ nét đủ đậm mới tính vào khung cắt
     const x = p % w, y = (p / w) | 0;
     if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
   }
   if (maxX < 0) return null;
-  const pad = 12;
+  // Cắt sát nét chữ ký: tách các cụm nét liền nhau, bỏ các chấm bẩn, bóng mép giấy nằm xa nét chính,
+  // để ảnh lưu chỉ vừa chữ ký và chữ ký không bị nhỏ khi chèn vào đơn.
+  {
+    const bw = maxX - minX + 1, bh = maxY - minY + 1;
+    const lab = new Int32Array(bw * bh);
+    const comps = [];
+    const stack = new Int32Array(bw * bh);
+    for (let y0 = 0; y0 < bh; y0++) {
+      for (let x0 = 0; x0 < bw; x0++) {
+        const k0 = y0 * bw + x0;
+        if (lab[k0] || o[((y0 + minY) * w + x0 + minX) * 4 + 3] < 90) continue;
+        const id = comps.length + 1;
+        let sp = 0, n = 0, cx0 = x0, cx1 = x0, cy0 = y0, cy1 = y0;
+        stack[sp++] = k0; lab[k0] = id;
+        while (sp) {
+          const k = stack[--sp]; n++;
+          const x = k % bw, y = (k / bw) | 0;
+          if (x < cx0) cx0 = x; if (x > cx1) cx1 = x; if (y < cy0) cy0 = y; if (y > cy1) cy1 = y;
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+            const nx = x + dx, ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= bw || ny >= bh) continue;
+            const nk = ny * bw + nx;
+            if (lab[nk] || o[((ny + minY) * w + nx + minX) * 4 + 3] < 90) continue;
+            lab[nk] = id; stack[sp++] = nk;
+          }
+        }
+        comps.push({ n, x0: cx0, x1: cx1, y0: cy0, y1: cy1 });
+      }
+    }
+    if (comps.length > 1 && !opts.keepAll) {
+      // cụm chạm mép ảnh thường là bóng mép giấy, viền bàn: bỏ (trừ khi chỉ có các cụm như vậy)
+      const ex = Math.max(3, w * 0.02), ey = Math.max(3, hgt * 0.02);
+      const edge = (c) => c.x0 + minX <= ex || c.y0 + minY <= ey || c.x1 + minX >= w - 1 - ex || c.y1 + minY >= hgt - 1 - ey;
+      const pool = comps.some((c) => !edge(c) && c.n >= 15) ? comps.filter((c) => !edge(c)) : comps;
+      const big = Math.max(...pool.map((c) => c.n));
+      const main = pool.filter((c) => c.n >= Math.max(15, big * 0.08));
+      let X0 = Math.min(...main.map((c) => c.x0)), X1 = Math.max(...main.map((c) => c.x1));
+      let Y0 = Math.min(...main.map((c) => c.y0)), Y1 = Math.max(...main.map((c) => c.y1));
+      // giữ thêm dấu chấm, dấu thanh nhỏ nằm sát nét chính
+      const mx = (X1 - X0) * 0.12 + 8, my = (Y1 - Y0) * 0.25 + 8;
+      pool.forEach((c) => {
+        if (c.x0 >= X0 - mx && c.x1 <= X1 + mx && c.y0 >= Y0 - my && c.y1 <= Y1 + my) {
+          X0 = Math.min(X0, c.x0); X1 = Math.max(X1, c.x1); Y0 = Math.min(Y0, c.y0); Y1 = Math.max(Y1, c.y1);
+        }
+      });
+      // xóa các chấm bẩn còn lại trong khung
+      const keep = new Uint8Array(comps.length + 1);
+      comps.forEach((c, i) => { if (c.x0 >= X0 && c.x1 <= X1 && c.y0 >= Y0 && c.y1 <= Y1) keep[i + 1] = 1; });
+      for (let y = Y0; y <= Y1; y++) for (let x = X0; x <= X1; x++) {
+        const l = lab[y * bw + x];
+        if (l && !keep[l]) o[((y + minY) * w + x + minX) * 4 + 3] = 0;
+      }
+      minX += X0; maxX = minX + (X1 - X0); minY += Y0; maxY = minY + (Y1 - Y0);
+    }
+  }
+  const pad = Math.max(6, Math.round(Math.max(maxX - minX, maxY - minY) * 0.03));
   minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad); maxX = Math.min(w - 1, maxX + pad); maxY = Math.min(hgt - 1, maxY + pad);
   const tmp = document.createElement('canvas'); tmp.width = w; tmp.height = hgt;
   tmp.getContext('2d').putImageData(out, 0, 0);
@@ -169,7 +226,7 @@ export function mountSignatureTool(container, onSave, opts = {}) {
   }, l)));
 
   saveBtn.addEventListener('click', async () => {
-    let c = mode === 'draw' ? removeBackground(pad, 200, 1.2, 'original') : result;
+    let c = mode === 'draw' ? removeBackground(pad, 200, 1.2, 'original', { keepAll: true }) : result;
     if (!c) return;
     c = shrink(c);
     await onSave(await canvasToPngBytes(c));
