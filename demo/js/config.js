@@ -8,4 +8,4 @@ export const API_URLS = {
 // Trang nằm trong thư mục /demo/ thì dùng DEMO, còn lại dùng PROD.
 export const ENV = /\/demo(\/|$)/.test(location.pathname) ? 'DEMO' : 'PROD';
 export const API_URL = API_URLS[ENV];
-export const APP_VERSION = '0.4.3';
+export const APP_VERSION = '0.4.4';

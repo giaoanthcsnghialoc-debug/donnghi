@@ -20,6 +20,57 @@ function otsu(lum) {
 }
 
 /**
+ * Làm phẳng nền giấy: ước lượng độ sáng của giấy ở từng vùng (kể cả chỗ có bóng tay, bóng đèn, mép tối)
+ * rồi chia cho độ sáng đó. Giấy ở mọi chỗ thành trắng đều, còn nét mực vẫn đậm và giữ nguyên độ dày,
+ * nên không phải kéo thanh lọc nền xuống thấp (làm nét mảnh, chữ ký trông nhỏ đi).
+ */
+export function flattenPaper(src) {
+  const w = src.width, hgt = src.height;
+  const img = src.getContext('2d').getImageData(0, 0, w, hgt);
+  const d = img.data;
+  const cell = Math.max(12, Math.round(Math.max(w, hgt) / 45));
+  const gw = Math.ceil(w / cell), gh = Math.ceil(hgt / cell);
+  let grid = new Float32Array(gw * gh);
+  for (let y = 0; y < hgt; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const l = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      const k = ((y / cell) | 0) * gw + ((x / cell) | 0);
+      if (l > grid[k]) grid[k] = l;                       // giấy là phần sáng nhất trong mỗi ô
+    }
+  }
+  const pass = (g, fn) => {
+    const o = new Float32Array(gw * gh);
+    for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) {
+      const vals = [];
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const nx = x + dx, ny = y + dy;
+        if (nx >= 0 && ny >= 0 && nx < gw && ny < gh) vals.push(g[ny * gw + nx]);
+      }
+      o[y * gw + x] = fn(vals);
+    }
+    return o;
+  };
+  grid = pass(grid, (v) => Math.max(...v));                               // ô bị nét đậm phủ kín: lấy giấy ô bên cạnh
+  grid = pass(grid, (v) => v.reduce((a, b) => a + b, 0) / v.length);     // làm mượt
+  const out = src.ownerDocument ? src.ownerDocument.createElement('canvas') : document.createElement('canvas');
+  out.width = w; out.height = hgt;
+  const res = new ImageData(w, hgt), o = res.data;
+  for (let y = 0; y < hgt; y++) {
+    const gy = Math.min(gh - 1.001, Math.max(0, y / cell - 0.5)), y0 = gy | 0, fy = gy - y0, y1 = Math.min(gh - 1, y0 + 1);
+    for (let x = 0; x < w; x++) {
+      const gx = Math.min(gw - 1.001, Math.max(0, x / cell - 0.5)), x0 = gx | 0, fx = gx - x0, x1 = Math.min(gw - 1, x0 + 1);
+      const bg = (grid[y0 * gw + x0] * (1 - fx) + grid[y0 * gw + x1] * fx) * (1 - fy) + (grid[y1 * gw + x0] * (1 - fx) + grid[y1 * gw + x1] * fx) * fy;
+      const k = 250 / Math.max(40, bg);
+      const i = (y * w + x) * 4;
+      o[i] = Math.min(255, d[i] * k); o[i + 1] = Math.min(255, d[i + 1] * k); o[i + 2] = Math.min(255, d[i + 2] * k); o[i + 3] = 255;
+    }
+  }
+  out.getContext('2d').putImageData(res, 0, 0);
+  return out;
+}
+
+/**
  * Xử lý ảnh: điểm sáng hơn ngưỡng thành trong suốt; nét chữ giữ màu, chỉnh độ đậm; cắt sát chữ ký.
  * threshold: 0..255; strength: 0.5..2 (độ đậm nét); ink: 'original' | 'blue' | 'black'
  */
@@ -169,7 +220,7 @@ export function mountSignatureTool(container, onSave, opts = {}) {
   const onPick = async (e) => {
     const f = e.target.files[0]; e.target.value = '';
     if (!f) return;
-    source = await fileToCanvas(f);
+    source = flattenPaper(await fileToCanvas(f));
     const g = source.getContext('2d').getImageData(0, 0, source.width, source.height).data;
     const lum = new Uint8Array(source.width * source.height);
     for (let i = 0, p = 0; i < g.length; i += 4, p++) lum[p] = (0.299 * g[i] + 0.587 * g[i + 1] + 0.114 * g[i + 2]) | 0;
@@ -184,7 +235,7 @@ export function mountSignatureTool(container, onSave, opts = {}) {
     type: 'button', onclick: (e) => { ink = v; [...e.target.parentNode.children].forEach((b) => b.classList.toggle('on', b === e.target)); process(); }
   }, l)));
   controls.append(
-    h('div.field', h('label', 'Độ lọc nền'), th, h('div.hint', 'Kéo sang phải nếu nét bị mất, sang trái nếu còn vết bẩn, bóng giấy.')),
+    h('div.field', h('label', 'Độ lọc nền'), th, h('div.hint', 'Hệ thống đã tự làm trắng nền giấy. Thường không cần chỉnh; còn vết bẩn thì kéo sang trái một chút, nét bị đứt thì kéo sang phải.')),
     h('div.field', h('label', 'Độ đậm nét'), st),
     opts.forStamp ? null : h('div.field', h('label', 'Màu nét'), inkSeg));
 
