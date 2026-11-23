@@ -2,6 +2,7 @@
 import { api, auth, setAuthHandlers, swrGet, swrPut, swrClear } from './api.js';
 import { h, clear, icon, toast } from './ui.js';
 import { ENV, API_URL } from './config.js';
+import './install.js';   // bắt sự kiện cài ứng dụng càng sớm càng tốt
 import * as Auth from './views/auth.js';
 import * as Home from './views/home.js';
 import * as LeaveForm from './views/leaveForm.js';
@@ -191,7 +192,13 @@ window.addEventListener('hashchange', route);
 
 /* ---------------- Khởi chạy ---------------- */
 applyTheme();
-if (ENV === 'DEMO') { const b = document.getElementById('env-banner'); b.textContent = 'MÔI TRƯỜNG THỬ NGHIỆM – DỮ LIỆU MẪU'; b.hidden = false; }
+{
+  // Dòng đầu trang: bản thử ghi rõ là thử nghiệm; bản chính thức ghi người phát triển.
+  const b = document.getElementById('env-banner');
+  if (ENV === 'DEMO') b.textContent = 'MÔI TRƯỜNG THỬ NGHIỆM – DỮ LIỆU MẪU';
+  else { b.textContent = 'Ứng dụng được phát triển bởi Thầy Đặng Cao Cường'; b.classList.add('credit'); }
+  b.hidden = false;
+}
 if (!API_URL) {
   clear(app(), h('div.auth-wrap', h('div.alert.warn', 'Chưa cấu hình địa chỉ máy chủ. Quản trị viên cần dán URL ứng dụng web Apps Script vào tệp js/config.js.')));
 } else {

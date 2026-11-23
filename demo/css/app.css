@@ -36,6 +36,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 img { max-width: 100%; }
 
 #env-banner { background: #b91c1c; color: #fff; text-align: center; font-size: .8rem; font-weight: 700; padding: calc(4px + var(--safe-t)) 8px 4px; letter-spacing: .04em; position: sticky; top: 0; z-index: 30; }
+#env-banner.credit { background: #1e3a8a; color: #dbeafe; font-weight: 500; letter-spacing: .01em; font-size: .76rem; line-height: 18px; }
 
 .splash { min-height: 70vh; display: grid; place-items: center; align-content: center; gap: 12px; color: var(--text-2); }
 .spinner { width: 32px; height: 32px; border: 3px solid var(--primary-soft); border-top-color: var(--primary); border-radius: 50%; animation: spin .8s linear infinite; }
@@ -224,3 +225,13 @@ details > summary { cursor: pointer; padding: 6px 0; }
 /* Nút Đăng xuất trên thanh tiêu đề trang Cá nhân */
 .topbar .top-logout { background: rgba(255, 255, 255, .16); color: #fff; border: 1px solid rgba(255, 255, 255, .45); gap: 6px; white-space: nowrap; flex: none; }
 .topbar .top-logout svg { width: 18px; height: 18px; }
+
+/* Cài ứng dụng */
+.install-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.install-card img, .install-head img { border-radius: 12px; flex: none; box-shadow: 0 2px 8px rgba(15, 27, 51, .2); }
+.install-actions { display: flex; flex-direction: column; gap: 6px; }
+.install-head { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+.install-steps { list-style: none; padding: 0; margin: 0 0 12px; display: grid; gap: 10px; }
+.install-step { display: flex; gap: 10px; align-items: flex-start; line-height: 1.5; }
+.install-num { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--primary); color: var(--on-primary); display: grid; place-items: center; font-weight: 700; font-size: .85rem; }
+.install-ico { display: inline-block; border: 1px solid var(--border); border-radius: 6px; padding: 0 6px; }

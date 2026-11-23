@@ -12,7 +12,7 @@ const FAQ = [
   ['Đơn của tôi đang ở đâu?', 'Vào Đơn của tôi. Mỗi đơn có trạng thái: Bản nháp, Chờ ký, Chờ duyệt, Yêu cầu bổ sung, Đã duyệt, Từ chối, Đã thu hồi, Đã hủy. Có kết quả, bạn nhận thông báo ở mục Thông báo.'],
   ['Muốn sửa đơn đã gửi?', 'Đơn đang chờ duyệt: bấm Thu hồi rồi tạo đơn mới, hoặc chờ Hiệu trưởng yêu cầu bổ sung. Đơn đã duyệt cần thay đổi: báo Hiệu trưởng hủy đơn, sau đó gửi đơn mới.'],
   ['Quên mật khẩu?', 'Ở màn hình đăng nhập bấm Quên mật khẩu (cần đã khai báo email trong Cá nhân). Không có email thì gửi yêu cầu ở đây hoặc nhờ quản trị viên đặt lại.'],
-  ['Cài ứng dụng lên điện thoại?', 'Android (Chrome): menu ⋮ → Thêm vào màn hình chính. iPhone (Safari): nút Chia sẻ → Thêm vào MH chính.']
+  ['Cài ứng dụng lên điện thoại?', 'Vào Cá nhân → Cài ứng dụng lên điện thoại và làm theo hướng dẫn. Android (Chrome): bấm Cài. iPhone (Safari): nút Chia sẻ → Thêm vào MH chính. Nếu đang mở trong Zalo: bấm ⋯ → Mở bằng trình duyệt trước.']
 ];
 
 export async function renderSupport() {

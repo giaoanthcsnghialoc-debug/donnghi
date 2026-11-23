@@ -3,6 +3,7 @@ import { api, auth, bytesToBase64, swrClear } from '../api.js';
 import { h, clear, icon, toast, busy, viDateTime, fmtDays } from '../ui.js';
 import { state, layout, go, applyTheme, refreshBoot, route, isAdmin, has } from '../app.js';
 import { mountSignatureTool } from './signatureTool.js';
+import { installNow, isStandalone } from '../install.js';
 import { roleName } from './home.js';
 
 export async function render() {
@@ -65,6 +66,7 @@ export async function render() {
     has('PRINCIPAL') || has('VICE') || has('LEADER') ? link('#/reports', 'list', 'Báo cáo & sổ nghỉ', 'Thống kê ngày nghỉ, tải Excel để xếp loại thi đua') : null,
     has('PRINCIPAL') || has('VICE') ? link('#/announcements', 'bell', 'Thông báo của BGH', 'Gửi thông báo tới giáo viên, nhân viên; thông báo định kỳ') : null,
     link('#/support', 'shield', 'Hỗ trợ', 'Câu hỏi thường gặp, gửi yêu cầu cho quản trị viên'),
+    isStandalone() ? null : h('a.list-item', { href: '#/profile', onclick: (e) => { e.preventDefault(); installNow(); } }, icon('download'), h('div.grow', h('div.title', 'Cài ứng dụng lên điện thoại'), h('div.sub', 'Đưa biểu tượng Đơn nghỉ ra màn hình chính')), h('span.chev', icon('chev'))),
     isAdmin() ? link('#/admin', 'settings', 'Quản trị hệ thống') : null));
 
   page.append(h('p.tiny', { style: { textAlign: 'center' } }, 'Phiên bản ' + b.version + (b.env === 'DEMO' ? ' · DEMO' : '')));

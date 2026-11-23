@@ -2,6 +2,7 @@
 import { api, auth, swrClear, swrPut } from '../api.js';
 import { h, clear, toast, busy } from '../ui.js';
 import { state, route, layout, go, refreshBoot, applyTheme } from '../app.js';
+import { installCard, inAppBrowser } from '../install.js';
 
 const app = () => document.getElementById('app');
 let bootInfo = null;
@@ -52,9 +53,9 @@ export async function renderLogin() {
   h('div.field', h('label', 'Mật khẩu'), pass),
   err, btn,
   h('a.btn.ghost.block', { href: '#/forgot' }, 'Quên mật khẩu?'));
-  clear(wrap, await header(), form,
+  clear(wrap, await header(), installCard({ compact: true }), form,
     h('p.tiny', { style: { textAlign: 'center', marginTop: '16px' } }, 'Tài khoản do quản trị viên nhà trường cấp.'));
-  user.focus();
+  if (!inAppBrowser()) user.focus();
 }
 
 export async function renderForgot() {

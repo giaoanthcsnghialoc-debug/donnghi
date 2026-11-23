@@ -2,6 +2,7 @@
 import { api, apiSWR } from '../api.js';
 import { h, icon, statusBadge, fmtDays, viDateTime, SESSION_VI } from '../ui.js';
 import { state, layout, isManager, isAdmin, has, updateBadges } from '../app.js';
+import { installCard } from '../install.js';
 
 export function leaveRow(l, extra) {
   return h('a.list-item', { href: '#/leave/' + l.id },
@@ -27,6 +28,8 @@ function drawHome(page, b, d) {
   if (d.decider) b.pendingCount = d.decider.pendingCount;
   updateBadges();
   page.replaceChildren();
+  const inst = installCard();
+  if (inst) page.append(inst);
 
   const hello = h('div.card.hero',
     h('div.tiny', 'Xin chào'),
