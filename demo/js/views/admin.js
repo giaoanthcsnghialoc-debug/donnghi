@@ -128,7 +128,7 @@ function downloadImportTemplate() {
       rows: [
         ['Mã NV', 'Không bắt buộc. Không trùng nhau.', 'GV015'],
         ['Họ và tên', 'Bắt buộc.', 'Nguyễn Thị Thu Hà'],
-        ['Tên đăng nhập', 'Có thể để trống: hệ thống tự đặt từ họ tên (tên + chữ đầu họ, đệm), trùng thì thêm số.', 'hantt'],
+        ['Tên đăng nhập', 'Có thể để trống: hệ thống tự đặt là họ tên viết liền không dấu, trùng thì thêm số.', 'nguyenthithuha'],
         ['Email', 'Không bắt buộc. Dùng để lấy lại mật khẩu và nhận thông báo.', 'ha.nguyen@gmail.com'],
         ['Số điện thoại, Số Zalo', 'Không bắt buộc. Ô đã đặt sẵn dạng chữ nên giữ được số 0 đầu.', '0912345678'],
         ['Chức vụ', 'Không bắt buộc, ghi trên đơn.', 'Giáo viên'],
