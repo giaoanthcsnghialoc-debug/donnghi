@@ -3,6 +3,7 @@ import { api, bytesToBase64, downloadFile } from '../api.js';
 import { h, clear, icon, toast, busy, confirmSheet, sheet, viDate, viDateTime, openBytes, saveBytes } from '../ui.js';
 import { state, layout, go, adminCan, has, refreshBoot } from '../app.js';
 import { mountSignatureTool } from './signatureTool.js';
+import { buildXlsx, XLSX_MIME } from '../xlsx.js';
 import { roleName } from './home.js';
 
 const ROLES = ['TEACHER', 'STAFF', 'LEADER', 'VICE', 'PRINCIPAL', 'ADMIN'];
@@ -16,7 +17,8 @@ export function renderMenu() {
   const u = state.boot.user;
   if (!guard(page, u.roles.includes('ADMIN'))) return;
   page.append(h('div.list',
-    adminCan('users') ? link('#/admin/users', 'users', 'Tài khoản', 'Tạo, sửa, khóa, đặt lại mật khẩu, nhập từ Excel') : null,
+    adminCan('users') ? link('#/admin/users', 'users', 'Tài khoản', 'Tạo, sửa, khóa, đặt lại mật khẩu') : null,
+    adminCan('users') ? link('#/admin/import', 'file', 'Nhập tài khoản từ Excel', 'Tải tệp mẫu, điền danh sách, tải lên để tạo hàng loạt') : null,
     adminCan('org') ? link('#/admin/departments', 'school', 'Tổ chuyên môn') : null,
     adminCan('org') ? link('#/admin/campuses', 'home', 'Điểm trường') : null,
     adminCan('balance') ? link('#/admin/balances', 'cal', 'Quỹ phép năm', 'Nhập số ngày phép theo quy định cho từng người') : null,
@@ -35,7 +37,7 @@ export async function renderUsers() {
   if (!guard(page, adminCan('users'))) return;
   const q = h('input.input', { type: 'search', placeholder: 'Tìm tên, tên đăng nhập, mã NV' });
   const list = h('div');
-  page.append(h('div.btn-row', h('a.btn.primary', { href: '#/admin/user/new' }, icon('plus'), 'Thêm'), h('a.btn.outline', { href: '#/admin/import' }, 'Nhập từ Excel')), q, list);
+  page.append(h('div.btn-row', h('a.btn.primary', { href: '#/admin/user/new' }, icon('plus'), 'Thêm'), h('a.btn.outline', { href: '#/admin/import' }, icon('file'), 'Nhập từ Excel')), q, list);
   clear(list, h('div.splash', h('div.spinner')));
   const users = await api('users.list');
   const st = { ACTIVE: '', LOCKED: ' · Đang khóa', DISABLED: ' · Đã vô hiệu hóa' };
@@ -100,35 +102,89 @@ export async function renderUserForm(id) {
   }
 }
 
+const IMPORT_HEAD = ['Mã NV', 'Họ và tên', 'Tên đăng nhập', 'Email', 'Số điện thoại', 'Số Zalo', 'Chức vụ', 'Tổ chuyên môn', 'Điểm trường', 'Vai trò'];
+const IMPORT_ROLES = ['Giáo viên', 'Nhân viên', 'Tổ trưởng', 'Phó Hiệu trưởng'];
+
+/** Tệp Excel mẫu: trang Danh sách (điền), trang Danh mục (tổ, điểm trường, vai trò để chọn), trang Hướng dẫn. */
+function downloadImportTemplate() {
+  const b = state.boot;
+  const deps = b.departments.map((d) => d.name), camps = b.campuses.map((c) => c.name);
+  const n = Math.max(deps.length, camps.length, IMPORT_ROLES.length);
+  const cat = Array.from({ length: n }, (_, i) => [deps[i] || '', camps[i] || '', IMPORT_ROLES[i] || '']);
+  const col = (letter, count) => `'Danh mục'!$${letter}$2:$${letter}$${count + 1}`;
+  const sheets = [
+    {
+      name: 'Danh sách', header: IMPORT_HEAD, rows: [], textCols: [0, 2, 4, 5],
+      widths: [10, 26, 16, 26, 14, 14, 16, 24, 22, 18],
+      validations: [
+        { sqref: 'H2:H400', formula: col('A', Math.max(1, deps.length)), prompt: 'Chọn tổ trong danh sách' },
+        { sqref: 'I2:I400', formula: col('B', Math.max(1, camps.length)), prompt: 'Chọn điểm trường. Dạy nhiều điểm thì gõ: Phân hiệu 1; Phân hiệu 2' },
+        { sqref: 'J2:J400', formula: col('C', IMPORT_ROLES.length), prompt: 'Để trống = Giáo viên. Tổ trưởng kiêm giáo viên thì gõ: Tổ trưởng; Giáo viên' }
+      ]
+    },
+    { name: 'Danh mục', header: ['Tổ chuyên môn', 'Điểm trường', 'Vai trò'], rows: cat, widths: [30, 24, 20] },
+    {
+      name: 'Hướng dẫn', header: ['Cột', 'Cách điền', 'Ví dụ'], widths: [18, 70, 30],
+      rows: [
+        ['Mã NV', 'Không bắt buộc. Không trùng nhau.', 'GV015'],
+        ['Họ và tên', 'Bắt buộc.', 'Nguyễn Thị Thu Hà'],
+        ['Tên đăng nhập', 'Có thể để trống: hệ thống tự đặt từ họ tên (tên + chữ đầu họ, đệm), trùng thì thêm số.', 'hantt'],
+        ['Email', 'Không bắt buộc. Dùng để lấy lại mật khẩu và nhận thông báo.', 'ha.nguyen@gmail.com'],
+        ['Số điện thoại, Số Zalo', 'Không bắt buộc. Ô đã đặt sẵn dạng chữ nên giữ được số 0 đầu.', '0912345678'],
+        ['Chức vụ', 'Không bắt buộc, ghi trên đơn.', 'Giáo viên'],
+        ['Tổ chuyên môn', 'Chọn trong danh sách thả xuống (lấy từ trang Danh mục).', deps[0] || 'Tổ Khoa học tự nhiên'],
+        ['Điểm trường', 'Bắt buộc. Chọn trong danh sách. Dạy nhiều điểm thì gõ các tên cách nhau bằng dấu chấm phẩy.', camps.slice(0, 2).join('; ')],
+        ['Vai trò', 'Để trống = Giáo viên. Có thể nhiều vai trò, cách nhau bằng dấu chấm phẩy. Hiệu trưởng và quản trị viên tạo riêng trong ứng dụng.', 'Tổ trưởng; Giáo viên'],
+        ['Lưu ý', 'Điền từ dòng 2 trang Danh sách, mỗi người một dòng, không đổi tên hay thứ tự cột. Tải lên xong hệ thống kiểm tra trước, chưa tạo ngay.', '']
+      ]
+    }
+  ];
+  saveBytes(buildXlsx(sheets), XLSX_MIME, 'Mau_nhap_tai_khoan.xlsx');
+}
+
 export function renderImport() {
-  const page = layout('Nhập từ Excel', { back: '#/admin/users' });
+  const page = layout('Nhập tài khoản từ Excel', { back: '#/admin/users' });
   if (!guard(page, adminCan('users'))) return;
   let file = null;
   const out = h('div');
-  const pick = h('input', { type: 'file', accept: '.xlsx,.xls,.csv', hidden: true, onchange: (e) => { file = e.target.files[0]; name.textContent = file ? file.name : ''; run(true); } });
-  const name = h('span.small');
+  const pick = h('input', { type: 'file', accept: '.xlsx,.xls,.csv', hidden: true, onchange: (e) => { file = e.target.files[0]; e.target.value = ''; name.textContent = file ? file.name : ''; run(true); } });
+  const name = h('div.small', { style: { textAlign: 'center' } });
   const run = async (dryRun) => {
     if (!file) return;
     const b64 = bytesToBase64(new Uint8Array(await file.arrayBuffer()));
-    const rows = await busy(dryRun ? 'Đang kiểm tra…' : 'Đang tạo tài khoản…', () => api('users.import', { fileBase64: b64, fileName: file.name, dryRun }));
-    const okN = rows.filter((r) => r.ok).length;
+    let rows;
+    try { rows = await busy(dryRun ? 'Đang kiểm tra tệp…' : 'Đang tạo tài khoản…', () => api('users.import', { fileBase64: b64, fileName: file.name, dryRun }, { write: !dryRun })); } catch (e) { return; }
+    const okN = rows.filter((r) => r.ok).length, badN = rows.length - okN;
+    const exportAccounts = () => {
+      const ok = rows.filter((r) => r.ok);
+      saveBytes(buildXlsx([{ name: 'Tài khoản', title: 'DANH SÁCH TÀI KHOẢN – ' + String(state.boot.settings.SCHOOL_NAME || '').toUpperCase(),
+        subtitle: 'Địa chỉ đăng nhập: ' + location.origin + location.pathname + ' · Lần đầu đăng nhập hệ thống yêu cầu đổi mật khẩu.',
+        header: ['STT', 'Họ và tên', 'Tên đăng nhập', 'Mật khẩu tạm'], widths: [6, 30, 18, 18], textCols: [2, 3],
+        rows: ok.map((r, i) => [i + 1, r.fullName, r.username, r.tempPassword]) }]), XLSX_MIME, 'Tai_khoan_mat_khau_tam.xlsx');
+    };
     clear(out, h('section.card.stack',
       h('h2', dryRun ? 'Kết quả kiểm tra' : 'Đã tạo ' + okN + ' tài khoản'),
-      h('table.simple', h('tr', h('th', 'Dòng'), h('th', 'Họ tên'), h('th', dryRun ? 'Kết quả' : 'Mật khẩu tạm')),
-        rows.map((r) => h('tr', h('td', String(r.line)), h('td', r.fullName + ' (' + r.username + ')'), h('td', { style: { color: r.ok ? 'var(--ok)' : 'var(--bad)' } }, r.ok ? (r.tempPassword || 'Hợp lệ') : r.error)))),
-      dryRun && okN ? h('button.btn.primary.block', { onclick: () => run(false) }, 'Tạo ' + okN + ' tài khoản hợp lệ') : null,
-      !dryRun && okN ? h('button.btn.outline.block', {
-        onclick: () => {
-          const csv = '﻿Họ tên,Tên đăng nhập,Mật khẩu tạm\n' + rows.filter((r) => r.ok).map((r) => [r.fullName, r.username, r.tempPassword].join(',')).join('\n');
-          saveBytes(new TextEncoder().encode(csv), 'text/csv', 'mat_khau_tam.csv');
-        }
-      }, 'Tải danh sách mật khẩu tạm (CSV)') : null));
+      h('div.small', dryRun ? okN + ' dòng hợp lệ' + (badN ? ', ' + badN + ' dòng lỗi (sửa trong tệp rồi tải lên lại, hoặc tạo phần hợp lệ trước).' : '.') : 'Tải danh sách mật khẩu tạm để phát cho từng người.'),
+      !dryRun && okN ? h('button.btn.primary.block', { onclick: exportAccounts }, icon('download'), 'Tải danh sách tài khoản, mật khẩu tạm (Excel)') : null,
+      h('div', { style: { overflowX: 'auto' } }, h('table.simple', h('tr', h('th', 'Dòng'), h('th', 'Họ tên'), h('th', 'Tên đăng nhập'), h('th', dryRun ? 'Kết quả' : 'Mật khẩu tạm')),
+        rows.map((r) => h('tr', h('td', String(r.line)), h('td', r.fullName), h('td', r.username + (r.autoName ? ' (tự đặt)' : '')),
+          h('td', { style: { color: r.ok ? 'var(--ok)' : 'var(--bad)' } }, r.ok ? (r.tempPassword || 'Hợp lệ') : r.error))))),
+      dryRun && okN ? h('button.btn.primary.block', { onclick: () => run(false) }, icon('check'), 'Tạo ' + okN + ' tài khoản hợp lệ') : null));
+    out.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
-  page.append(h('section.card.stack',
-    h('p.small', 'Tệp Excel (.xlsx) hoặc CSV, dòng đầu là tiêu đề, các cột theo thứ tự:'),
-    h('div.card.tight.small', 'Mã NV | Họ và tên | Tên đăng nhập | Email | Số điện thoại | Số Zalo | Chức vụ | Tổ chuyên môn | Điểm trường | Vai trò'),
-    h('p.tiny', 'Nhiều điểm trường hoặc vai trò thì ngăn bằng dấu chấm phẩy, ví dụ "Phân hiệu 1; Phân hiệu 2". Vai trò: Giáo viên, Nhân viên, Tổ trưởng, PHT. Hiệu trưởng và quản trị viên tạo riêng.'),
-    h('div.row', h('button.btn.outline', { onclick: () => pick.click() }, icon('file'), 'Chọn tệp'), name), pick), out);
+  page.append(
+    h('section.card.stack',
+      h('h2', 'Bước 1. Tải tệp mẫu'),
+      h('p.small', 'Tệp mẫu có sẵn các cột, danh sách thả xuống để chọn tổ, điểm trường, vai trò, và trang hướng dẫn cách điền.'),
+      h('button.btn.outline.block', { onclick: downloadImportTemplate }, icon('download'), 'Tải tệp Excel mẫu')),
+    h('section.card.stack',
+      h('h2', 'Bước 2. Điền danh sách'),
+      h('p.small', 'Mỗi người một dòng trong trang "Danh sách". Bắt buộc: Họ và tên, Điểm trường. Tên đăng nhập để trống thì hệ thống tự đặt.')),
+    h('section.card.stack',
+      h('h2', 'Bước 3. Tải tệp lên'),
+      h('p.small', 'Hệ thống kiểm tra trước và báo dòng nào lỗi; bấm Tạo mới tạo tài khoản.'),
+      h('button.btn.primary.block', { onclick: () => pick.click() }, icon('file'), 'Chọn tệp Excel để tải lên'), name, pick),
+    out);
 }
 
 /* ---------------- Tổ, điểm trường ---------------- */
