@@ -37,7 +37,7 @@ export async function render() {
     h('div.field', h('label', 'Email cá nhân'), email, h('div.hint', 'Dùng để khôi phục mật khẩu và nhận thông báo kết quả đơn.')),
     h('div.field', h('label', 'Số điện thoại'), phone),
     h('div.field', h('label', 'Số Zalo (nếu có)'), zalo, h('div.hint', 'Gửi thông báo qua Zalo hiện chưa bật (cần dịch vụ có phí).')),
-    has('VICE') || has('LEADER') ? h('label.check', emailApproved, 'Nhận cả email khi có đơn được duyệt') : null,
+    has('VICE') || has('LEADER') ? h('label.check', emailApproved, 'Nhận email khi có đơn được duyệt (để bố trí dạy thay)') : null,
     h('button.btn.primary.block', {
       onclick: async () => {
         await busy('Đang lưu…', () => api('me.update', { email: email.value.trim(), phone: phone.value.trim(), zaloPhone: zalo.value.trim(), emailOnApproved: emailApproved.checked }, { write: true }));

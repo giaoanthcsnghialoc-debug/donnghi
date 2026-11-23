@@ -1,11 +1,11 @@
 // Service worker: lưu sẵn giao diện để mở nhanh. Không bao giờ lưu dữ liệu API.
-const VERSION = 'donnghi-0.4.6';
+const VERSION = 'donnghi-0.4.8';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/app.js', 'js/api.js', 'js/ui.js', 'js/config.js', 'js/leavecalc.js', 'js/pdftools.js',
   'js/views/auth.js', 'js/views/home.js', 'js/views/leaveForm.js', 'js/views/leaveDetail.js', 'js/views/lists.js',
   'js/views/signPlacer.js', 'js/views/preview.js', 'js/views/signatureTool.js', 'js/views/profile.js', 'js/views/admin.js',
-  'js/views/reports.js', 'js/views/announce.js', 'js/views/support.js', 'js/xlsx.js',
+  'js/views/reports.js', 'js/views/announce.js', 'js/views/support.js', 'js/views/zalo.js', 'js/xlsx.js',
   'fonts/be-vietnam-pro-vietnamese-400-normal.woff2', 'fonts/be-vietnam-pro-latin-400-normal.woff2',
   'fonts/be-vietnam-pro-vietnamese-600-normal.woff2', 'fonts/be-vietnam-pro-latin-600-normal.woff2',
   'fonts/be-vietnam-pro-vietnamese-700-normal.woff2', 'fonts/be-vietnam-pro-latin-700-normal.woff2',

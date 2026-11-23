@@ -2,15 +2,20 @@
 import { api, base64ToBytes, bytesToBase64 } from '../api.js';
 import { h, sheet, busy, toast, icon, saveBytes } from '../ui.js';
 import { pdfJs } from '../pdftools.js';
-import { state } from '../app.js';
+import { state, refreshBoot } from '../app.js';
 import { mountSignatureTool } from './signatureTool.js';
 
 /**
  * Bảo đảm người dùng đã có ảnh chữ ký. Chưa có (hoặc force = muốn đổi) thì mở ngay khung tạo chữ ký,
  * lưu xong quay lại đúng chỗ đang làm, không phải rời trang đơn.
  */
-export function ensureSignature(force = false) {
-  if (!force && state.boot && state.boot.user.hasSignature) return Promise.resolve(true);
+export async function ensureSignature(force = false) {
+  if (!force && state.boot && state.boot.user.hasSignature) return true;
+  if (!force) {
+    // có thể đã tạo chữ ký trên máy khác: hỏi lại máy chủ trước khi bắt tạo mới
+    try { await busy('Đang kiểm tra chữ ký…', () => refreshBoot()); } catch (e) { /* bỏ qua */ }
+    if (state.boot && state.boot.user.hasSignature) return true;
+  }
   return new Promise((resolve) => {
     let done = false;
     sheet(force ? 'Đổi chữ ký' : 'Tạo chữ ký của bạn', (box, close) => {
@@ -80,7 +85,7 @@ export async function previewLeave(params, { sendText = '', note = '', viewOnly 
 }
 
 /** Xem một PDF ngay trong ứng dụng (không mở cửa sổ mới, tránh bị trình duyệt chặn). */
-export async function viewPdf(bytes, title, fileName) {
+export async function viewPdf(bytes, title, fileName, extra) {
   const lib = await pdfJs();
   let doc;
   try { doc = await lib.getDocument({ data: bytes.slice() }).promise; } catch (e) { toast('Không hiển thị được PDF: ' + e.message, 'bad'); return; }
@@ -88,6 +93,7 @@ export async function viewPdf(bytes, title, fileName) {
     const pages = h('div.preview-pages');
     box.append(pages,
       h('div.tiny.muted', { style: { textAlign: 'center', marginBottom: '8px' } }, 'Chạm vào trang để phóng to, chạm lần nữa để thu nhỏ.'),
+      extra ? h('div.preview-actions', { style: { marginBottom: '8px', display: 'grid' } }, extra) : null,
       h('div.btn-row.preview-actions',
         h('button.btn.outline', { onclick: () => saveBytes(bytes, 'application/pdf', fileName || 'don.pdf') }, icon('download'), 'Tải về máy'),
         h('button.btn.primary', { onclick: () => close() }, 'Đóng')));

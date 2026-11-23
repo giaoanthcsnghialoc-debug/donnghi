@@ -5,6 +5,7 @@ import { state, layout, go, refreshBoot, route } from '../app.js';
 import { stampPdf } from '../pdftools.js';
 import { placeSignature } from './signPlacer.js';
 import { previewLeave, ensureSignature, viewPdf } from './preview.js';
+import { zaloButton, msgSubmitted, msgApproved, askNotifyPrincipal } from './zalo.js';
 
 const DECISION_VI = { APPROVE: 'Phê duyệt', REJECT: 'Từ chối', REQUEST_CHANGES: 'Yêu cầu bổ sung', CANCEL: 'Hủy đơn' };
 
@@ -28,6 +29,7 @@ async function mySignaturePng() {
 
 /** Người gửi chèn chữ ký: đơn mẫu – máy chủ tự đặt; đơn tải lên – chọn vị trí trên trang. */
 export async function signAsSender(L) {
+  let done = null;
   try {
     if (L.sourceType === 'UPLOAD') {
       const { src, sig } = await busy('Đang mở đơn…', async () => ({
@@ -36,16 +38,17 @@ export async function signAsSender(L) {
       }));
       const placed = await placeSignature(src.bytes, [{ key: 'sig', label: 'Chữ ký của bạn', png: sig, defaultPos: { x: 0.55, y: 0.72, w: 0.3 } }], 'Chèn chữ ký người làm đơn');
       if (!placed) { toast('Chưa chèn chữ ký. Đơn đang ở trạng thái Chờ ký người gửi.'); go('#/leave/' + L.id); return; }
-      await busy('Đang chèn chữ ký và gửi…', async (say) => {
+      done = await busy('Đang chèn chữ ký và gửi…', async (say) => {
         const pdf = await stampPdf(src.bytes, placed.map((p) => ({ pngBytes: sig, ...p })));
         const up = await uploadFile(new Uint8Array(pdf), (L.code || 'don') + '_ky.pdf', 'signed-pdf', (x) => say('Đang tải lên ' + Math.round(x * 100) + '%'));
-        await api('leave.sign', { id: L.id, signedFileId: up.fileId, placement: placed[0] }, { write: true });
+        return api('leave.sign', { id: L.id, signedFileId: up.fileId, placement: placed[0] }, { write: true });
       });
     } else {
-      await busy('Đang chèn chữ ký và gửi…', () => api('leave.sign', { id: L.id }, { write: true }));
+      done = await busy('Đang chèn chữ ký và gửi…', () => api('leave.sign', { id: L.id }, { write: true }));
     }
     toast('Đã ký và gửi đơn tới Hiệu trưởng.', 'ok');
     go('#/leave/' + L.id);
+    if (done && done.status === 'PENDING') setTimeout(() => askNotifyPrincipal(done), 400);
   } catch (e) {
     if (handleSignError(e, L.id)) return;
     go('#/leave/' + L.id);
@@ -97,7 +100,8 @@ async function approveFlow(L) {
     state.boot.pendingCount = Math.max(0, (state.boot.pendingCount || 1) - 1);
     // Ở lại trang đơn vừa duyệt và mở ngay đơn đã duyệt để xem.
     if (location.hash === '#/leave/' + L.id) route(); else go('#/leave/' + L.id);
-    if (res && res.finalPdf) viewPdf(base64ToBytes(res.finalPdf.dataBase64), 'Đơn đã duyệt ' + (L.code || ''), res.finalPdf.fileName);
+    if (res && res.finalPdf) viewPdf(base64ToBytes(res.finalPdf.dataBase64), 'Đơn đã duyệt ' + (L.code || ''), res.finalPdf.fileName,
+      zaloButton('Sao chép đơn gửi PHT, tổ trưởng (Zalo)', () => msgApproved(res), 'nhóm Phó Hiệu trưởng, tổ trưởng', '.ok'));
   } catch (e) {
     handleSignError(e, L.id);
   }
@@ -162,6 +166,18 @@ export async function render(id) {
   } }, icon('file'), h('div.grow', h('div.title', a.fileName), h('div.tiny', fmtSize(a.size) + ' · phiên bản ' + a.version)))));
   if (fileCard.children.length === 1) fileCard.append(h('div.tiny', 'Chưa có tệp.'));
   page.append(fileCard);
+
+  // Sao chép đơn để gửi qua Zalo thường (đặt ngay dưới phần thông tin đơn cho dễ thấy)
+  const me = state.boot.user;
+  const zaloRow = [];
+  if (L.userId === me.id && L.status === 'PENDING') zaloRow.push(zaloButton('Sao chép đơn gửi Hiệu trưởng', () => msgSubmitted(L), 'Hiệu trưởng', '.primary'));
+  if (L.status === 'APPROVED' && (L.userId === me.id || state.boot.canDecide || me.roles.includes('PRINCIPAL')))
+    zaloRow.push(zaloButton('Sao chép đơn đã duyệt gửi PHT, tổ trưởng', () => msgApproved(L), 'nhóm Phó Hiệu trưởng, tổ trưởng', '.primary'));
+  if (zaloRow.length) {
+    const zcard = h('section.card.stack', h('h2', 'Gửi qua Zalo'),
+      h('div.tiny', 'Sao chép nội dung đơn kèm đường link, rồi dán vào Zalo. Người nhận bấm link để xem đơn trên hệ thống.'), ...zaloRow);
+    page.insertBefore(zcard, page.children[1] || null);
+  }
 
   // Lịch sử
   page.append(h('section.card', h('h2', 'Lịch sử xử lý'),
