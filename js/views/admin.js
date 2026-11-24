@@ -273,7 +273,7 @@ export async function renderSettings() {
   const logoPick = h('input', { type: 'file', accept: 'image/png,image/jpeg', hidden: true, onchange: async (e) => {
     const f = e.target.files[0]; if (!f) return;
     await busy('Đang tải logo…', async () => api('settings.uploadImage', { kind: 'logo', dataBase64: bytesToBase64(new Uint8Array(await f.arrayBuffer())) }));
-    toast('Đã cập nhật logo.', 'ok');
+    toast('Đã cập nhật logo.', 'ok'); renderSettings();
   } });
   const stampCard = h('section.card.stack', h('h2', 'Con dấu ' + (s.hasStamp ? '(đã có)' : '(chưa có)')),
     h('p.tiny', 'Ảnh con dấu chỉ là hình ảnh hiển thị trên PDF, không phải con dấu điện tử.'));
@@ -282,8 +282,18 @@ export async function renderSettings() {
     toast('Đã lưu ảnh con dấu.', 'ok');
   }, { forStamp: true });
   page.append(
-    h('section.card.stack', h('h2', 'Logo trường ' + (s.hasLogo ? '(đã có)' : '(chưa có)')), h('button.btn.outline.block', { onclick: () => logoPick.click() }, 'Chọn ảnh logo'), logoPick),
+    h('section.card.stack', h('h2', 'Logo trường ' + (s.hasLogo ? '(đã có)' : '(chưa có)')),
+      h('p.tiny', 'Logo hiện ở trang đăng nhập của ứng dụng. Mặc định không in lên đơn; muốn in thì bật trong Quản trị → Mẫu đơn.'),
+      h('button.btn.outline.block', { onclick: () => logoPick.click() }, s.hasLogo ? 'Đổi ảnh logo' : 'Chọn ảnh logo'), logoPick,
+      s.hasLogo ? h('button.btn.danger.block', { onclick: async () => {
+        if (!await confirmSheet('Xóa logo', 'Gỡ logo trường khỏi ứng dụng và đơn? Ảnh vẫn được giữ trong Drive.', 'Xóa logo', 'danger')) return;
+        await busy('Đang xóa…', () => api('settings.removeImage', { kind: 'logo' }, { write: true })); toast('Đã xóa logo.', 'ok'); renderSettings();
+      } }, 'Xóa logo') : null),
     stampCard,
+    s.hasStamp ? h('button.btn.danger.block', { style: { marginTop: '-6px', marginBottom: '12px' }, onclick: async () => {
+      if (!await confirmSheet('Xóa ảnh con dấu', 'Gỡ ảnh con dấu? Các đơn duyệt sau sẽ không có con dấu cho tới khi tải ảnh mới.', 'Xóa con dấu', 'danger')) return;
+      await busy('Đang xóa…', () => api('settings.removeImage', { kind: 'stamp' }, { write: true })); toast('Đã xóa ảnh con dấu.', 'ok'); renderSettings();
+    } }, 'Xóa ảnh con dấu') : null,
     h('section.card.stack', h('h2', 'Mẫu đơn'), h('p.tiny', 'Xem thử mẫu đơn với dữ liệu giả, chữ ký và con dấu hiện tại.'),
       h('button.btn.outline.block', { onclick: async () => { const r = await busy('Đang tạo PDF…', () => api('templates.preview')); const bin = atob(r.dataBase64); const bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i); openBytes(bytes, 'application/pdf', r.fileName); } }, icon('eye'), 'Xem thử mẫu đơn')));
 }
@@ -427,7 +437,8 @@ export async function renderTemplate() {
     h('div.field', h('label', 'Cỡ chữ'), h('select.input', { onchange: (e) => { o.fontSize = Number(e.target.value); } }, [11, 12, 13, 14].map((n) => h('option', { value: n, selected: Number(o.fontSize) === n }, n + ' pt')))),
     h('h2', 'Hiện các dòng'),
     tog('showStaffCode', 'Mã nhân viên'), tog('showPosition', 'Chức vụ'), tog('showDepartment', 'Tổ chuyên môn'),
-    tog('showCampuses', 'Điểm trường công tác'), tog('showSelectedCampuses', 'Điểm trường liên quan'), tog('showPhone', 'Số điện thoại liên hệ'));
+    tog('showCampuses', 'Điểm trường công tác'), tog('showSelectedCampuses', 'Điểm trường liên quan'), tog('showPhone', 'Số điện thoại liên hệ'),
+    tog('showLogo', 'Logo trường ở góc trên (thường không dùng trên đơn hành chính)'));
   const adv = h('section.card.stack',
     h('h2', 'Sửa HTML (nâng cao)'),
     h('div.tiny', 'Chỉ dành cho người biết HTML. Bắt buộc giữ các trường: ' + t.required.join(', ') + '. Danh sách trường: ' + Object.keys(t.fields).map((k) => '{{' + k + '}} ' + t.fields[k]).join('; ') + '.'),
