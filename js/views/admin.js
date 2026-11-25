@@ -19,6 +19,7 @@ export function renderMenu() {
   page.append(h('div.list',
     adminCan('users') ? link('#/admin/users', 'users', 'Tài khoản', 'Tạo, sửa, khóa, đặt lại mật khẩu') : null,
     adminCan('users') ? link('#/admin/import', 'file', 'Nhập tài khoản từ Excel', 'Tải tệp mẫu, điền danh sách, tải lên để tạo hàng loạt') : null,
+    adminCan('users') ? link('#/admin/bulk-password', 'shield', 'Cấp mật khẩu hàng loạt', 'Đặt mật khẩu chung hoặc ngẫu nhiên cho nhiều người, tải danh sách Excel') : null,
     adminCan('org') ? link('#/admin/departments', 'school', 'Tổ chuyên môn') : null,
     adminCan('org') ? link('#/admin/campuses', 'home', 'Điểm trường') : null,
     adminCan('balance') ? link('#/admin/balances', 'cal', 'Quỹ phép năm', 'Nhập số ngày phép theo quy định cho từng người') : null,
@@ -37,7 +38,7 @@ export async function renderUsers() {
   if (!guard(page, adminCan('users'))) return;
   const q = h('input.input', { type: 'search', placeholder: 'Tìm tên, tên đăng nhập, mã NV' });
   const list = h('div');
-  page.append(h('div.btn-row', h('a.btn.primary', { href: '#/admin/user/new' }, icon('plus'), 'Thêm'), h('a.btn.outline', { href: '#/admin/import' }, icon('file'), 'Nhập từ Excel')), q, list);
+  page.append(h('div.btn-row', h('a.btn.primary', { href: '#/admin/user/new' }, icon('plus'), 'Thêm'), h('a.btn.outline', { href: '#/admin/import' }, icon('file'), 'Nhập từ Excel'), h('a.btn.outline', { href: '#/admin/bulk-password' }, icon('shield'), 'Cấp mật khẩu hàng loạt')), q, list);
   clear(list, h('div.splash', h('div.spinner')));
   const users = await api('users.list');
   const st = { ACTIVE: '', LOCKED: ' · Đang khóa', DISABLED: ' · Đã vô hiệu hóa' };
@@ -480,4 +481,59 @@ export async function renderTemplate() {
         try { const r = await busy('Đang lưu…', () => api('templates.save', payload(), { write: true })); toast('Đã lưu phiên bản ' + r.version + '.', 'ok'); renderTemplate(); } catch (e) { /* đã báo lỗi */ }
       }
     }, 'Lưu mẫu')), page.nextSibling);
+}
+
+/* ---------------- Cấp mật khẩu hàng loạt ---------------- */
+export function renderBulkPassword() {
+  const page = layout('Cấp mật khẩu hàng loạt', { back: '#/admin/users' });
+  if (!guard(page, adminCan('users'))) return;
+  const f = { scope: 'NOT_CHANGED', mode: 'COMMON', password: '' };
+  const seg = (opts, key, after) => h('div.seg', opts.map(([v, l]) => h('button' + (f[key] === v ? '.on' : ''), { type: 'button', onclick: () => { f[key] = v; draw(); if (after) after(); } }, l)));
+  const pw = h('input.input', { placeholder: 'Ví dụ: NghiaLoc@2026', autocomplete: 'off', oninput: (e) => { f.password = e.target.value; } });
+  const body = h('div.stack'), out = h('div');
+  page.append(body, out);
+  function draw() {
+    clear(body,
+      h('section.card.stack', h('h2', 'Cấp cho ai'),
+        seg([['NOT_CHANGED', 'Người chưa đổi mật khẩu'], ['ALL', 'Tất cả tài khoản']], 'scope'),
+        h('div.tiny', f.scope === 'ALL' ? 'Mọi tài khoản đang hoạt động (trừ quản trị viên chính và chính bạn). Người đang dùng cũng bị đặt lại mật khẩu và đăng xuất.'
+          : 'Chỉ những người chưa từng đăng nhập đổi mật khẩu (thường là tài khoản vừa nhập từ Excel). Người đã đổi mật khẩu không bị ảnh hưởng.')),
+      h('section.card.stack', h('h2', 'Mật khẩu'),
+        seg([['COMMON', 'Một mật khẩu chung'], ['RANDOM', 'Mỗi người một mật khẩu']], 'mode'),
+        f.mode === 'COMMON' ? [pw, h('div.tiny', 'Tối thiểu 8 ký tự, có cả chữ và số. Dễ phát cho giáo viên; lần đầu đăng nhập mỗi người bắt buộc đổi sang mật khẩu riêng.')]
+          : h('div.tiny', 'Hệ thống tạo mật khẩu ngẫu nhiên cho từng người; tải danh sách Excel để in, cắt phát riêng từng người. An toàn hơn mật khẩu chung.')),
+      h('button.btn.primary.block', { onclick: run }, icon('shield'), 'Cấp mật khẩu'));
+  }
+  async function run() {
+    if (f.mode === 'COMMON' && !(f.password.length >= 8 && /[A-Za-z]/.test(f.password) && /\d/.test(f.password))) { toast('Mật khẩu chung cần tối thiểu 8 ký tự, có cả chữ và số.', 'bad'); return; }
+    let list;
+    try { list = await busy('Đang lấy danh sách…', () => api('users.bulkPrepare', { scope: f.scope })); } catch (e) { return; }
+    if (!list.length) { toast('Không có tài khoản nào cần cấp.', 'warn'); return; }
+    if (!await confirmSheet('Cấp mật khẩu cho ' + list.length + ' tài khoản',
+      (f.mode === 'COMMON' ? 'Đặt mật khẩu chung "' + f.password + '"' : 'Tạo mật khẩu ngẫu nhiên') + ' cho ' + list.length + ' người. Mỗi người phải đổi mật khẩu khi đăng nhập lần tới; thiết bị đang đăng nhập sẽ bị đăng xuất.', 'Cấp mật khẩu', 'danger')) return;
+    const results = [];
+    try {
+      await busy('Đang cấp mật khẩu…', async (say) => {
+        for (let i = 0; i < list.length; i += 10) {
+          say('Đang cấp mật khẩu ' + Math.min(i + 10, list.length) + '/' + list.length + '…');
+          const r = await api('users.bulkResetPassword', { ids: list.slice(i, i + 10).map((x) => x.id), mode: f.mode, password: f.mode === 'COMMON' ? f.password : '' }, { write: true });
+          results.push(...r);
+        }
+      });
+    } catch (e) { toast('Đã cấp được ' + results.filter((r) => r.ok).length + ' tài khoản trước khi gặp lỗi. Bấm lại để cấp tiếp (chọn "Người chưa đổi mật khẩu").', 'bad'); }
+    const ok = results.filter((r) => r.ok);
+    const dep = Object.fromEntries(list.map((x) => [x.id, x.departmentName]));
+    const exportXlsx = () => saveBytes(buildXlsx([{ name: 'Tài khoản', title: 'DANH SÁCH TÀI KHOẢN – ' + String(state.boot.settings.SCHOOL_NAME || '').toUpperCase(),
+      subtitle: 'Đăng nhập tại: ' + location.origin + location.pathname + ' · Lần đầu đăng nhập hệ thống yêu cầu đổi mật khẩu.',
+      header: ['STT', 'Họ và tên', 'Tổ', 'Tên đăng nhập', 'Mật khẩu tạm'], widths: [6, 28, 22, 22, 18], textCols: [3, 4],
+      rows: ok.map((r, i) => [i + 1, r.fullName, dep[r.id] || '', r.username, r.tempPassword]) }]), XLSX_MIME, 'Mat_khau_tam_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+    clear(out, h('section.card.stack',
+      h('h2', 'Đã cấp mật khẩu cho ' + ok.length + ' tài khoản'),
+      h('button.btn.primary.block', { onclick: exportXlsx }, icon('download'), 'Tải danh sách tên đăng nhập, mật khẩu (Excel)'),
+      f.mode === 'COMMON' ? h('div.alert.info', 'Mật khẩu chung: ' + f.password + '. Có thể gửi vào nhóm Zalo kèm địa chỉ ứng dụng; mỗi người đăng nhập lần đầu sẽ phải đổi mật khẩu.') : null,
+      h('div', { style: { overflowX: 'auto' } }, h('table.simple', h('tr', h('th', 'Họ tên'), h('th', 'Tên đăng nhập'), h('th', 'Mật khẩu tạm')),
+        ok.map((r) => h('tr', h('td', r.fullName), h('td', r.username), h('td', r.tempPassword)))))));
+    out.scrollIntoView({ behavior: 'smooth' });
+  }
+  draw();
 }

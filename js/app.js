@@ -130,6 +130,7 @@ const ROUTES = [
   [/^#\/admin\/settings$/, () => Admin.renderSettings()],
   [/^#\/admin\/audit$/, () => Admin.renderAudit()],
   [/^#\/admin\/years$/, () => Admin.renderYears()],
+  [/^#\/admin\/bulk-password$/, () => Admin.renderBulkPassword()],
   [/^#\/admin\/backups$/, () => Admin.renderBackups()],
   [/^#\/admin\/template$/, () => Admin.renderTemplate()],
   [/^#\/admin\/support$/, () => Support.renderAdminList()],
