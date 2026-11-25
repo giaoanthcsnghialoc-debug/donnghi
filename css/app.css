@@ -61,7 +61,14 @@ img { max-width: 100%; }
 #env-banner:not([hidden]) + #app .topbar { top: 26px; padding-top: 10px; }
 #env-banner:not([hidden]) + #app .topbar.home { padding-top: 14px; }
 .topbar h1 { text-shadow: 0 1px 2px rgba(15, 40, 110, .3); font-size: 1.08rem; font-weight: 700; letter-spacing: .01em; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25; }
-.topbar.home h1 { font-size: 1.15rem; }
+.topbar.home h1 { color: #fcd34d; font-weight: 800; text-shadow: 0 1px 3px rgba(15, 40, 110, .55); font-size: clamp(.92rem, 4.3vw, 1.15rem); white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+@media (max-width: 480px) {
+  .topbar-in { gap: 9px; }
+  .brand-logo { width: 36px; height: 36px; border-radius: 10px; }
+  .brand-logo img { width: 30px; height: 30px; }
+  .avatar { width: 34px; height: 34px; font-size: .8rem; }
+  .topbar-sub { font-size: .74rem; }
+}
 .topbar .icon-btn { color: var(--on-primary); }
 .icon-btn { background: none; border: 0; width: 40px; height: 40px; border-radius: 50%; display: inline-grid; place-items: center; cursor: pointer; position: relative; }
 .icon-btn:active { background: rgba(255, 255, 255, .15); }
