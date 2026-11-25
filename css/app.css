@@ -44,7 +44,7 @@ img { max-width: 100%; }
 
 /* Khung trang */
 .topbar { position: sticky; top: 0; z-index: 20; background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%); color: var(--on-primary); padding: calc(10px + var(--safe-t)) 16px 10px; box-shadow: 0 2px 10px rgba(15, 27, 51, .18); }
-.topbar-credit { max-width: 688px; margin: -4px auto 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(255, 255, 255, .28); font-size: .74rem; font-weight: 600; letter-spacing: .03em; color: #fff; text-shadow: 0 1px 2px rgba(15, 40, 110, .35); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topbar-credit { max-width: 688px; margin: 8px auto -2px; padding-top: 6px; border-top: 1px solid rgba(255, 255, 255, .28); font-size: .74rem; font-weight: 600; letter-spacing: .03em; color: #fde68a; text-shadow: 0 1px 2px rgba(15, 40, 110, .4); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .auth-credit { margin-top: 6px; font-size: .74rem; color: var(--text-2); letter-spacing: .02em; }
 .topbar-in { max-width: 688px; margin: 0 auto; display: flex; align-items: center; gap: 12px; min-height: 44px; }
 .topbar.home { padding-bottom: 14px; padding-top: calc(14px + var(--safe-t)); }
