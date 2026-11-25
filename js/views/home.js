@@ -30,6 +30,7 @@ function drawHome(page, b, d) {
   page.replaceChildren();
   const inst = installCard();
   if (inst) page.append(inst);
+  if (b.canSubmit && !b.user.campusIds.length) page.append(h('a.card.alert.warn', { href: '#/profile', style: { display: 'block' } }, h('b', 'Chọn điểm trường công tác'), h('div.tiny', 'Bạn chưa chọn điểm trường nên chưa tạo được đơn. Chạm để vào Cá nhân → Công tác.')));
 
   const hello = h('div.card.hero',
     h('div.tiny', 'Xin chào'),

@@ -143,7 +143,7 @@ export async function render(id) {
   const campusBox = h('div', myCampuses.map((c) => h('label.check', h('input', { type: 'checkbox', checked: f.campusIds.includes(c.id), onchange: (e) => { f.campusIds = e.target.checked ? [...new Set([...f.campusIds, c.id])] : f.campusIds.filter((x) => x !== c.id); } }), c.name)));
   page.append(h('section.card.stack',
     h('h2', 'Thông tin khác'),
-    h('div.field', h('label', 'Điểm trường liên quan'), myCampuses.length ? campusBox : h('div.alert.warn', 'Bạn chưa được phân công điểm trường. Liên hệ quản trị viên.')),
+    h('div.field', h('label', 'Điểm trường liên quan'), myCampuses.length ? campusBox : h('div.alert.warn', 'Bạn chưa chọn điểm trường công tác. ', h('a', { href: '#/profile' }, 'Vào Cá nhân → Công tác để chọn'), '.')),
     h('div.field', h('label', 'Lý do'), h('textarea.input', { rows: 3, value: f.reason, placeholder: 'Ví dụ: Đưa con đi khám bệnh', oninput: (e) => { f.reason = e.target.value; } })),
     h('div.field', h('label', 'Số điện thoại liên hệ'), h('input.input', { type: 'tel', inputmode: 'tel', value: f.contactPhone, oninput: (e) => { f.contactPhone = e.target.value; } }))));
 

@@ -6,6 +6,36 @@ import { mountSignatureTool } from './signatureTool.js';
 import { installNow, isStandalone } from '../install.js';
 import { roleName } from './home.js';
 
+const POSITION_SUGGEST = ['Giáo viên', 'Nhân viên', 'Tổ trưởng chuyên môn', 'Tổ phó chuyên môn', 'Phó Hiệu trưởng', 'Tổng phụ trách Đội', 'Nhân viên kế toán', 'Nhân viên văn thư', 'Nhân viên thiết bị', 'Nhân viên thư viện', 'Nhân viên y tế'];
+
+/** Thẻ "Công tác": tự chọn điểm trường công tác, tổ chuyên môn, chức vụ ghi trên đơn. */
+export function workCard(b, u, { onSaved } = {}) {
+  let picked = [...u.campusIds];
+  const pos = h('input.input', { value: u.positionTitle || '', maxlength: 60, list: 'dn-pos-list', placeholder: 'Ví dụ: Giáo viên' });
+  const posList = h('datalist', { id: 'dn-pos-list' }, POSITION_SUGGEST.map((x) => h('option', { value: x })));
+  const dep = h('select.input', h('option', { value: '' }, '— Chưa chọn tổ —'),
+    b.departments.map((d) => h('option', { value: d.id, selected: d.id === u.departmentId }, d.name)));
+  const camps = b.campuses.map((c) => h('label.check', h('input', { type: 'checkbox', checked: picked.includes(c.id),
+    onchange: (e) => { picked = e.target.checked ? [...picked, c.id] : picked.filter((x) => x !== c.id); } }), c.name));
+  return h('section.card.stack',
+    h('h2', 'Công tác'),
+    !u.campusIds.length ? h('div.alert.warn', 'Bạn chưa chọn điểm trường công tác. Chọn rồi bấm Lưu để tạo được đơn.') : null,
+    h('div.field', h('label', 'Điểm trường công tác'), h('div.hint', 'Dạy nhiều điểm thì chọn tất cả các điểm.'), ...camps),
+    h('div.field', h('label', 'Tổ chuyên môn'), dep),
+    h('div.field', h('label', 'Chức vụ (ghi trên đơn)'), pos, posList,
+      h('div.hint', 'Chỉ là chữ in trên đơn. Quyền duyệt đơn, xem báo cáo do quản trị viên cấp, không thay đổi theo ô này.')),
+    h('button.btn.primary.block', {
+      onclick: async () => {
+        if (!picked.length) { toast('Chọn ít nhất một điểm trường.', 'bad'); return; }
+        try {
+          await busy('Đang lưu…', () => api('me.update', { campusIds: picked, departmentId: dep.value, positionTitle: pos.value.trim() }, { write: true }));
+        } catch (e) { return; }
+        await refreshBoot(); toast('Đã lưu thông tin công tác.', 'ok');
+        if (onSaved) onSaved(); else render();
+      }
+    }, 'Lưu thông tin công tác'));
+}
+
 export async function render() {
   const b = state.boot;
   const u = b.user;
@@ -27,6 +57,9 @@ export async function render() {
       u.positionTitle ? [h('dt', 'Chức vụ'), h('dd', u.positionTitle)] : null,
       u.departmentName ? [h('dt', 'Tổ'), h('dd', u.departmentName)] : null,
       campus ? [h('dt', 'Điểm trường'), h('dd', campus)] : null)));
+
+  // Công tác: mỗi người tự chọn điểm trường, tổ, chức vụ (không cần quản trị viên phân công)
+  page.append(workCard(b, u));
 
   // Liên hệ
   const email = h('input.input', { type: 'email', value: u.email || '', autocomplete: 'email' });
