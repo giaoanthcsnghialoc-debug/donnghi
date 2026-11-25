@@ -36,7 +36,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 img { max-width: 100%; }
 
 #env-banner { background: #b91c1c; color: #fff; text-align: center; font-size: .8rem; font-weight: 700; padding: calc(4px + var(--safe-t)) 8px 4px; letter-spacing: .04em; position: sticky; top: 0; z-index: 30; }
-#env-banner.credit { background: linear-gradient(90deg, #e0ecff, #f0f6ff 50%, #e0ecff); color: #1e40af; font-weight: 600; letter-spacing: .02em; font-size: .74rem; line-height: 18px; border-bottom: 1px solid #c7d8fb; }
+#env-banner.credit { background: linear-gradient(90deg, #fde2e2, #fff1f1 50%, #fde2e2); color: #b91c1c; font-weight: 600; letter-spacing: .02em; font-size: .74rem; line-height: 18px; border-bottom: 1px solid #f8c4c4; }
 
 .splash { min-height: 70vh; display: grid; place-items: center; align-content: center; gap: 12px; color: var(--text-2); }
 .spinner { width: 32px; height: 32px; border: 3px solid var(--primary-soft); border-top-color: var(--primary); border-radius: 50%; animation: spin .8s linear infinite; }
