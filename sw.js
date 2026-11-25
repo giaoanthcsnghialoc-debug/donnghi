@@ -2,7 +2,7 @@
 // Bản chính thức (/donnghi/) và bản thử (/donnghi/demo/) cùng một tên miền: dùng bộ nhớ đệm riêng, không xóa của nhau.
 const ENVP = /\/demo\//.test(self.location.pathname) ? 'demo' : 'prod';
 const PREFIX = 'donnghi-' + ENVP + '-';
-const VERSION = PREFIX + '0.5.7';
+const VERSION = PREFIX + '0.5.8';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/app.js', 'js/api.js', 'js/ui.js', 'js/config.js', 'js/leavecalc.js', 'js/pdftools.js',

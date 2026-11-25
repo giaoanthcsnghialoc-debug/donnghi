@@ -18,7 +18,7 @@ export function leaveRow(l, extra) {
 
 export async function render() {
   const b = state.boot;
-  const page = layout(b.settings.SCHOOL_NAME || 'Đơn xin nghỉ');
+  const page = layout(b.settings.SCHOOL_NAME || 'Đơn xin nghỉ', { home: true });
   page.append(h('div.splash', h('div.spinner')));
   await apiSWR('dash.home', {}, (d) => { if (page.isConnected) drawHome(page, b, d); });
 }

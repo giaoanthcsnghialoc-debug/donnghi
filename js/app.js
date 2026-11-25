@@ -53,11 +53,20 @@ function navItems() {
  * Trả về phần tử .page để view đổ nội dung vào.
  */
 export function layout(title, opts = {}) {
-  const top = h('header.topbar',
-    opts.back ? h('button.icon-btn', { 'aria-label': 'Quay lại', onclick: () => (history.length > 1 ? history.back() : go(opts.back)) }, icon('back')) : null,
-    h('h1', title),
-    opts.actions || null,
-    state.boot ? h('a.icon-btn', { href: '#/profile', 'aria-label': 'Cá nhân' }, icon('user')) : null);
+  const u = state.boot && state.boot.user;
+  const initials = u ? (u.fullName || '?').trim().split(/\s+/).filter((w) => /^\p{L}/u.test(w)).slice(-2).map((w) => w[0]).join('').toUpperCase() : '';
+  const isHome = !opts.back && opts.home;
+  const top = h('header.topbar' + (isHome ? '.home' : ''),
+    h('div.topbar-in',
+      opts.back
+        ? h('button.icon-btn', { 'aria-label': 'Quay lại', onclick: () => (history.length > 1 ? history.back() : go(opts.back)) }, icon('back'))
+        : h('a.brand-logo', { href: '#/', 'aria-label': 'Trang chủ' }, h('img', { src: 'icons/icon-192.png', alt: '', width: 36, height: 36 })),
+      h('div.topbar-title',
+        h('h1', title),
+        h('div.topbar-sub', opts.sub || (isHome ? 'Hệ thống đơn xin nghỉ trực tuyến' : (state.boot && state.boot.settings.SCHOOL_NAME) || ''))),
+      opts.actions || null,
+      u && !opts.actions ? h('a.avatar-btn', { href: '#/profile', 'aria-label': 'Cá nhân', title: u.fullName },
+        h('span.avatar-name', u.fullName), h('span.avatar', initials)) : null));
   const page = h('main.page' + (opts.action ? '.has-action' : ''));
   const parts = [top, page];
   if (state.boot && !opts.noNav) {
