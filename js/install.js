@@ -82,7 +82,34 @@ export function showInstallHelp() {
   });
 }
 
+/** iPhone/iPad trong Safari: phủ mờ màn hình, mũi tên nhấp nháy chỉ vào đúng nút Chia sẻ. */
+export function iosCoach() {
+  if (document.querySelector('.ios-coach')) return;
+  const ipad = /iPad/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const chrome = /CriOS|EdgiOS|FxiOS/i.test(ua);
+  const v = iosMajor();
+  // Vị trí nút: iPhone Safari – giữa thanh dưới; iOS 26 – trong nút ⋯ góc dưới phải; iPad và Chrome – góc trên phải.
+  let pos = 'bottom', btn = h('b', 'Chia sẻ ', h('span.install-ico', '⬆'));
+  if (ipad || chrome) pos = 'top-right';
+  else if (v >= 26) { pos = 'bottom-right'; btn = h('b', '⋯'); }
+  const close = () => { el.remove(); };
+  const el = h('div.ios-coach.' + pos, { onclick: (e) => { if (e.target === el) close(); } },
+    h('div.ios-coach-card',
+      h('div.install-head', h('img', { src: 'icons/icon-192.png', alt: '', width: 44, height: 44 }), h('b', 'Cài Đơn nghỉ lên màn hình chính')),
+      h('ol.install-steps',
+        step(1, 'Bấm nút ', btn, pos === 'bottom-right' ? ' ở góc dưới bên phải → chọn Chia sẻ' : (pos === 'top-right' ? ' ở góc trên bên phải' : ' ở giữa thanh dưới cùng'), ' (mũi tên đang chỉ).'),
+        step(2, 'Kéo xuống, chọn ', h('b', 'Thêm vào MH chính'), '.'),
+        step(3, 'Bấm ', h('b', 'Thêm'), '. Xong!')),
+      h('div.row', h('button.btn.ghost.sm', { type: 'button', onclick: () => { close(); showInstallHelp(); } }, 'Không thấy nút?'),
+        h('button.btn.primary.sm', { type: 'button', onclick: close }, 'Đã hiểu'))),
+    h('div.ios-coach-arrow', pos === 'top-right' ? '⬆' : '⬇'));
+  document.body.append(el);
+  try { localStorage.setItem('dn_coach_at', String(Date.now())); } catch (e) { /* bỏ qua */ }
+}
+const iosSafariCanInstall = () => isIOS() && !inAppBrowser() && !isStandalone();
+
 export async function installNow() {
+  if (iosSafariCanInstall()) { iosCoach(); return false; }
   if (deferred) {
     deferred.prompt();
     const r = await deferred.userChoice.catch(() => null);
@@ -115,6 +142,11 @@ export function installCard({ compact = false } = {}) {
       h('div.install-actions', h('button.btn.primary.sm', { type: 'button', onclick: openInRealBrowser }, 'Mở ' + br)));
   }
   try { const t = Number(localStorage.getItem('dn_install_later') || 0); if (!compact && Date.now() - t < 7 * 86400000) return null; } catch (e) { /* bỏ qua */ }
+  // iPhone trong Safari: tự hiện mũi tên chỉ nút Chia sẻ (tối đa 3 ngày một lần).
+  if (iosSafariCanInstall()) {
+    let last = 0; try { last = Number(localStorage.getItem('dn_coach_at') || 0); } catch (e) { /* bỏ qua */ }
+    if (Date.now() - last > 3 * 86400000) setTimeout(iosCoach, 1200);
+  }
   const card = h('section.card.install-card',
     h('img', { src: 'icons/icon-192.png', alt: '', width: 48, height: 48 }),
     h('div.grow', h('b', 'Cài ứng dụng lên điện thoại'), h('div.tiny', 'Có biểu tượng trên màn hình, mở nhanh như ứng dụng thường.')),
