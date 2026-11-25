@@ -10,6 +10,14 @@ export const isStandalone = () => window.matchMedia('(display-mode: standalone)'
 const ua = navigator.userAgent || '';
 export const isIOS = () => /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 export const isAndroid = () => /Android/i.test(ua);
+/** Phiên bản iOS (16, 17…); 0 nếu không đọc được. */
+export const iosMajor = () => { const m = ua.match(/OS (\d+)[_.]\d+.*like Mac OS X/); return m ? Number(m[1]) : 0; };
+/** iOS 17 trở lên mới hỗ trợ nút tự chuyển sang Safari. */
+const canJumpToSafari = () => iosMajor() >= 17;
+async function copyAppUrl() {
+  try { await navigator.clipboard.writeText(appUrl()); toast('Đã sao chép. Mở Safari, chạm ô địa chỉ, chọn Dán và đi.', 'ok'); }
+  catch (e) { showInstallHelp(); }
+}
 export const inAppBrowser = () => {
   if (/Zalo/i.test(ua)) return 'Zalo';
   if (/FBAN|FBAV|FB_IAB/i.test(ua)) return 'Facebook';
@@ -25,7 +33,8 @@ export const inAppBrowser = () => {
 export function openInRealBrowser() {
   const url = appUrl();
   if (isIOS()) {
-    location.href = 'x-safari-' + url;          // iOS 15, 17 trở lên hỗ trợ
+    if (!canJumpToSafari()) { copyAppUrl(); return; }
+    location.href = 'x-safari-' + url;          // iOS 17 trở lên
   } else if (isAndroid()) {
     location.href = 'intent://' + url.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=' + encodeURIComponent(url) + ';end';
   }
@@ -45,7 +54,9 @@ export function showInstallHelp() {
     if (inApp) {
       steps = [
         step(1, 'Bạn đang mở trong ', h('b', inApp), '. Ứng dụng trong ' + inApp + ' không cài được.'),
-        step(2, 'Bấm nút ', h('b', '⋯'), ' hoặc ', h('b', '⋮'), ' ở góc trên bên phải → chọn ', h('b', isIOS() ? 'Mở bằng Safari' : 'Mở bằng trình duyệt'), '.'),
+        (isIOS() && !canJumpToSafari())
+          ? step(2, 'Bấm ', h('b', 'Sao chép'), ' ở ô địa chỉ bên dưới → mở ', h('b', 'Safari'), ' → chạm ô địa chỉ trên cùng → chọn ', h('b', 'Dán và đi'), '.')
+          : step(2, 'Bấm nút ', h('b', '⋯'), ' hoặc ', h('b', '⋮'), ' ở góc trên bên phải → chọn ', h('b', isIOS() ? 'Mở bằng Safari' : 'Mở bằng trình duyệt'), '.'),
         step(3, 'Trang mở trong ', h('b', isIOS() ? 'Safari' : 'Chrome'), ', bấm lại nút ', h('b', 'Cài'), ' trên trang đăng nhập.')];
       box.append(h('div.alert.info', 'Cách nhanh nhất: lần sau quét mã QR bằng Camera điện thoại thay vì bấm link trong Zalo – trang sẽ mở thẳng bằng ' + (isIOS() ? 'Safari' : 'Chrome') + '.'));
     } else if (isIOS()) {
@@ -90,6 +101,14 @@ export function installCard({ compact = false } = {}) {
   if (inApp && (isIOS() || isAndroid())) {
     // Đang mở trong Zalo: phải chuyển sang Safari/Chrome mới cài được – một nút bấm là chuyển.
     const br = isIOS() ? 'Safari' : 'Chrome';
+    if (isIOS() && !canJumpToSafari()) {
+      // iOS 16 trở xuống: không tự chuyển sang Safari được – sao chép địa chỉ rồi dán vào Safari.
+      return h('section.card.install-card.inapp',
+        h('img', { src: 'icons/icon-192.png', alt: '', width: 48, height: 48 }),
+        h('div.grow', h('b', 'Đang mở trong ' + inApp), h('div.tiny', 'Bấm Sao chép địa chỉ, mở Safari, chạm ô địa chỉ → Dán và đi, rồi cài từ Safari.')),
+        h('div.install-actions', h('button.btn.primary.sm', { type: 'button', onclick: copyAppUrl }, 'Sao chép địa chỉ'),
+          h('button.btn.ghost.sm', { type: 'button', onclick: showInstallHelp }, 'Hướng dẫn')));
+    }
     return h('section.card.install-card.inapp',
       h('img', { src: 'icons/icon-192.png', alt: '', width: 48, height: 48 }),
       h('div.grow', h('b', 'Đang mở trong ' + inApp), h('div.tiny', 'Mở bằng ' + br + ' để cài ứng dụng lên màn hình chính.')),
