@@ -36,7 +36,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
 img { max-width: 100%; }
 
 #env-banner { background: #b91c1c; color: #fff; text-align: center; font-size: .8rem; font-weight: 700; padding: calc(4px + var(--safe-t)) 8px 4px; letter-spacing: .04em; position: sticky; top: 0; z-index: 30; }
-#env-banner.credit { background: linear-gradient(90deg, #fde2e2, #fff1f1 50%, #fde2e2); color: #b91c1c; font-weight: 600; letter-spacing: .02em; font-size: .74rem; line-height: 18px; border-bottom: 1px solid #f8c4c4; }
 
 .splash { min-height: 70vh; display: grid; place-items: center; align-content: center; gap: 12px; color: var(--text-2); }
 .spinner { width: 32px; height: 32px; border: 3px solid var(--primary-soft); border-top-color: var(--primary); border-radius: 50%; animation: spin .8s linear infinite; }
@@ -44,22 +43,24 @@ img { max-width: 100%; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* Khung trang */
-.topbar { position: sticky; top: 0; z-index: 20; background: linear-gradient(120deg, #1e3a8a 0%, #1d4ed8 55%, #2563eb 100%); color: var(--on-primary); padding: calc(10px + var(--safe-t)) 16px 10px; box-shadow: 0 2px 10px rgba(15, 27, 51, .18); }
+.topbar { position: sticky; top: 0; z-index: 20; background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%); color: var(--on-primary); padding: calc(10px + var(--safe-t)) 16px 10px; box-shadow: 0 2px 10px rgba(15, 27, 51, .18); }
+.topbar-credit { max-width: 688px; margin: -4px auto 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(255, 255, 255, .28); font-size: .74rem; font-weight: 600; letter-spacing: .03em; color: #fff; text-shadow: 0 1px 2px rgba(15, 40, 110, .35); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.auth-credit { margin-top: 6px; font-size: .74rem; color: var(--text-2); letter-spacing: .02em; }
 .topbar-in { max-width: 688px; margin: 0 auto; display: flex; align-items: center; gap: 12px; min-height: 44px; }
 .topbar.home { padding-bottom: 14px; padding-top: calc(14px + var(--safe-t)); }
 .brand-logo { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 11px; background: #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .18); }
 .brand-logo img { width: 34px; height: 34px; border-radius: 9px; }
 .topbar-title { flex: 1; min-width: 0; }
-.topbar-sub { font-size: .76rem; opacity: .82; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; letter-spacing: .01em; }
+.topbar-sub { font-size: .78rem; opacity: .95; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; letter-spacing: .01em; }
 .topbar-sub:empty { display: none; }
 .avatar-btn { flex: none; display: flex; align-items: center; gap: 8px; color: #fff; text-decoration: none; padding: 3px 3px 3px 10px; border-radius: 999px; }
 .avatar-btn:hover { background: rgba(255, 255, 255, .12); }
 .avatar-name { font-size: .85rem; font-weight: 600; max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: none; }
 @media (min-width: 640px) { .avatar-name { display: block; } }
-.avatar { width: 36px; height: 36px; border-radius: 50%; background: rgba(255, 255, 255, .95); color: #1d4ed8; font-weight: 700; font-size: .85rem; display: grid; place-items: center; letter-spacing: .02em; box-shadow: 0 0 0 2px rgba(255, 255, 255, .35); }
+.avatar { width: 36px; height: 36px; border-radius: 50%; background: rgba(255, 255, 255, .95); color: #2563eb; font-weight: 700; font-size: .85rem; display: grid; place-items: center; letter-spacing: .02em; box-shadow: 0 0 0 2px rgba(255, 255, 255, .35); }
 #env-banner:not([hidden]) + #app .topbar { top: 26px; padding-top: 10px; }
 #env-banner:not([hidden]) + #app .topbar.home { padding-top: 14px; }
-.topbar h1 { font-size: 1.08rem; font-weight: 700; letter-spacing: .01em; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25; }
+.topbar h1 { text-shadow: 0 1px 2px rgba(15, 40, 110, .3); font-size: 1.08rem; font-weight: 700; letter-spacing: .01em; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25; }
 .topbar.home h1 { font-size: 1.15rem; }
 .topbar .icon-btn { color: var(--on-primary); }
 .icon-btn { background: none; border: 0; width: 40px; height: 40px; border-radius: 50%; display: inline-grid; place-items: center; cursor: pointer; position: relative; }

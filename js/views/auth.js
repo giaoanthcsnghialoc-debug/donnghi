@@ -12,7 +12,8 @@ async function header() {
   return h('div.auth-title',
     bootInfo.logo ? h('img.auth-logo', { src: bootInfo.logo, alt: 'Logo trường' }) : null,
     h('h1', 'Đơn xin nghỉ trực tuyến'),
-    h('p', bootInfo.schoolName || ''));
+    h('p', bootInfo.schoolName || ''),
+    h('div.auth-credit', 'Ứng dụng được phát triển bởi Thầy Đặng Cao Cường'));
 }
 
 function deviceLabel() {

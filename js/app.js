@@ -28,7 +28,7 @@ export function applyTheme(pref) {
   try { localStorage.setItem('dn_theme', p); } catch (e) { /* bỏ qua */ }
   const dark = p === 'dark' || (p === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-  document.querySelector('meta[name=theme-color]').setAttribute('content', dark ? '#0b1220' : '#1d4ed8');
+  document.querySelector('meta[name=theme-color]').setAttribute('content', dark ? '#0b1220' : '#3b82f6');
 }
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme());
 
@@ -57,6 +57,7 @@ export function layout(title, opts = {}) {
   const initials = u ? (u.fullName || '?').trim().split(/\s+/).filter((w) => /^\p{L}/u.test(w)).slice(-2).map((w) => w[0]).join('').toUpperCase() : '';
   const isHome = !opts.back && opts.home;
   const top = h('header.topbar' + (isHome ? '.home' : ''),
+    ENV === 'DEMO' ? null : h('div.topbar-credit', 'Ứng dụng được phát triển bởi Thầy Đặng Cao Cường'),
     h('div.topbar-in',
       opts.back
         ? h('button.icon-btn', { 'aria-label': 'Quay lại', onclick: () => (history.length > 1 ? history.back() : go(opts.back)) }, icon('back'))
@@ -206,8 +207,8 @@ applyTheme();
   // Dòng đầu trang: bản thử ghi rõ là thử nghiệm; bản chính thức ghi người phát triển.
   const b = document.getElementById('env-banner');
   if (ENV === 'DEMO') b.textContent = 'MÔI TRƯỜNG THỬ NGHIỆM – DỮ LIỆU MẪU';
-  else { b.textContent = 'Ứng dụng được phát triển bởi Thầy Đặng Cao Cường'; b.classList.add('credit'); }
-  b.hidden = false;
+  // Bản chính thức: dòng ghi người phát triển nằm ngay trong thanh tiêu đề (một khối màu), không tách thành thanh riêng.
+  if (ENV === 'DEMO') b.hidden = false;
 }
 if (!API_URL) {
   clear(app(), h('div.auth-wrap', h('div.alert.warn', 'Chưa cấu hình địa chỉ máy chủ. Quản trị viên cần dán URL ứng dụng web Apps Script vào tệp js/config.js.')));
