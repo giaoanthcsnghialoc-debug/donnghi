@@ -1,8 +1,9 @@
 // Chi tiết đơn, lịch sử, các nút thao tác theo quyền; luồng chèn chữ ký của người gửi và người duyệt.
 import { api, uploadFile, downloadFile, base64ToBytes } from '../api.js';
-import { h, clear, icon, toast, busy, askText, statusBadge, fmtDays, fmtSize, viDate, viDateTime, openBytes, saveBytes, SESSION_VI, confirmSheet } from '../ui.js';
+import { h, clear, icon, toast, busy, askText, sheet, statusBadge, fmtDays, fmtSize, viDate, viDateTime, openBytes, saveBytes, SESSION_VI, confirmSheet } from '../ui.js';
 import { state, layout, go, refreshBoot, route } from '../app.js';
 import { stampPdf } from '../pdftools.js';
+import { calcLeave } from '../leavecalc.js';
 import { placeSignature } from './signPlacer.js';
 import { previewLeave, ensureSignature, viewPdf } from './preview.js';
 import { zaloButton, msgSubmitted, msgApproved, askNotifyPrincipal } from './zalo.js';
@@ -73,9 +74,57 @@ export async function signWithPreview(L) {
   await signAsSender(L);
 }
 
+/**
+ * Chọn số ngày duyệt: duyệt đủ (một chạm) hoặc duyệt ít hơn đề nghị (chọn lại thời gian trong khoảng xin nghỉ),
+ * kèm ý kiến thêm (không bắt buộc). Trả về { approvedPeriod, note } hoặc null nếu đóng.
+ */
+function askApproval(L) {
+  return new Promise((resolve) => {
+    let done = false;
+    const f = { startDate: L.startDate, startSession: L.startSession, endDate: L.endDate, endSession: L.endSession };
+    sheet('Duyệt đơn ' + (L.code || ''), (box, close) => {
+      const finish = (v) => { done = true; close(); resolve(v); };
+      const note = h('textarea.input', { rows: 2, maxlength: 500, placeholder: 'Không bắt buộc. Ví dụ: Các ngày còn lại đề nghị đồng chí đi làm bình thường.' });
+      const seg = (val, on) => { const el = h('div.seg'); const draw = (v) => clear(el, [['AM', 'Sáng'], ['PM', 'Chiều']].map(([k, l]) => h('button' + (v === k ? '.on' : ''), { type: 'button', onclick: () => { on(k); draw(k); recalc(); } }, l))); draw(val); return el; };
+      const sD = h('input.input', { type: 'date', value: f.startDate, min: L.startDate, max: L.endDate });
+      const eD = h('input.input', { type: 'date', value: f.endDate, min: L.startDate, max: L.endDate });
+      const out = h('div');
+      const okBtn = h('button.btn.ok.block', { type: 'button' }, icon('check'), 'Duyệt');
+      const key = (d, ss) => d + (ss === 'PM' ? '|1' : '|0');
+      let days = 0;
+      const recalc = () => {
+        f.startDate = sD.value; f.endDate = eD.value;
+        let err = '';
+        if (!f.startDate || !f.endDate) err = 'Chọn ngày.';
+        else if (key(f.startDate, f.startSession) < key(L.startDate, L.startSession) || key(f.endDate, f.endSession) > key(L.endDate, L.endSession)) err = 'Phải nằm trong thời gian xin nghỉ.';
+        const c = err ? { error: err } : calcLeave(f.startDate, f.startSession, f.endDate, f.endSession);
+        days = c.error ? 0 : c.days;
+        clear(out, c.error ? h('div.alert.warn', c.error) : h('div.row', h('span.muted', 'Duyệt:'), h('span.days-pill', fmtDays(c.days) + ' / ' + fmtDays(L.days) + ' đề nghị')));
+        okBtn.disabled = !!c.error;
+        clear(okBtn, icon('check'), c.error ? 'Duyệt' : 'Duyệt ' + fmtDays(c.days) + ' và ký');
+      };
+      sD.addEventListener('change', recalc); eD.addEventListener('change', recalc);
+      const part = h('div.stack', { hidden: true },
+        h('div.field', h('label', 'Từ ngày'), sD), seg(f.startSession, (v) => { f.startSession = v; }),
+        h('div.field', h('label', 'Đến hết ngày'), eD), seg(f.endSession, (v) => { f.endSession = v; }),
+        out, okBtn);
+      okBtn.onclick = () => { if (days > 0) finish({ approvedPeriod: { ...f }, note: note.value.trim() }); };
+      const partBtn = h('button.btn.outline.block', { type: 'button', onclick: () => { part.hidden = false; partBtn.hidden = true; recalc(); } }, 'Duyệt ít ngày hơn…');
+      box.append(
+        h('p.muted', 'Giáo viên xin nghỉ ', h('b', fmtDays(L.days)), ' (' + (L.period || '') + ').'),
+        h('div.field', h('label', 'Ý kiến thêm của Hiệu trưởng'), note),
+        h('button.btn.ok.block', { type: 'button', onclick: () => finish({ approvedPeriod: null, note: note.value.trim() }) }, icon('check'), 'Duyệt đủ ' + fmtDays(L.days) + ' và ký'),
+        partBtn, part);
+    }, { onClose: () => { if (!done) resolve(null); } });
+  });
+}
+
 /** Người duyệt chèn chữ ký phê duyệt. */
 async function approveFlow(L) {
   let res = null;
+  const choice = await askApproval(L);
+  if (!choice) return;
+  const extra = { approvedPeriod: choice.approvedPeriod, note: choice.note };
   try {
     if (L.sourceType === 'UPLOAD') {
       const { src, sig, stamp } = await busy('Đang mở đơn…', async () => ({
@@ -91,10 +140,10 @@ async function approveFlow(L) {
         const pngs = { sig, stamp };
         const pdf = await stampPdf(src.bytes, placed.map((p) => ({ pngBytes: pngs[p.key], ...p })));
         const up = await uploadFile(new Uint8Array(pdf), (L.code || 'don') + '_duyet.pdf', 'signed-pdf', (x) => say('Đang tải lên ' + Math.round(x * 100) + '%'));
-        return api('leave.approve', { id: L.id, rowVersion: L.rowVersion, signedFileId: up.fileId, placement: placed[0], returnPdf: true }, { write: true });
+        return api('leave.approve', { id: L.id, rowVersion: L.rowVersion, signedFileId: up.fileId, placement: placed[0], returnPdf: true, ...extra }, { write: true });
       });
     } else {
-      res = await busy('Đang chèn chữ ký và duyệt…', () => api('leave.approve', { id: L.id, rowVersion: L.rowVersion, returnPdf: true }, { write: true }));
+      res = await busy('Đang chèn chữ ký và duyệt…', () => api('leave.approve', { id: L.id, rowVersion: L.rowVersion, returnPdf: true, ...extra }, { write: true }));
     }
     toast('Đã phê duyệt và ký đơn ' + L.code + '.', 'ok');
     state.boot.pendingCount = Math.max(0, (state.boot.pendingCount || 1) - 1);
@@ -130,6 +179,7 @@ export async function render(id) {
       h('dt', 'Điểm trường'), h('dd', (L.campusNames || []).join(', ') || '—'),
       snap.positionTitle ? [h('dt', 'Chức vụ'), h('dd', snap.positionTitle)] : null,
       snap.departmentName ? [h('dt', 'Tổ'), h('dd', snap.departmentName)] : null,
+      L.requested ? [h('dt', 'Đề nghị ban đầu'), h('dd', fmtDays(L.requested.days) + ' – Hiệu trưởng duyệt ' + fmtDays(L.days))] : null,
       L.extra && L.extra.handoverTo ? [h('dt', 'Dạy thay'), h('dd', L.extra.handoverTo + (L.extra.handoverDeptId ? ' (' + ((state.boot.departments || []).find((d) => d.id === L.extra.handoverDeptId) || {}).name + ')' : ''))] : null,
       L.extra && L.extra.payMode === 'UNPAID' ? [h('dt', 'Chế độ'), h('dd', 'Không lương')] : null,
       L.contactPhone ? [h('dt', 'Liên hệ'), h('dd', h('a', { href: 'tel:' + L.contactPhone }, L.contactPhone))] : null,
