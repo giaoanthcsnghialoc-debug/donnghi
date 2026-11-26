@@ -15,6 +15,10 @@ export function workCard(b, u, { onSaved } = {}) {
   const posList = h('datalist', { id: 'dn-pos-list' }, POSITION_SUGGEST.map((x) => h('option', { value: x })));
   const dep = h('select.input', h('option', { value: '' }, '— Chưa chọn tổ —'),
     b.departments.map((d) => h('option', { value: d.id, selected: d.id === u.departmentId }, d.name)));
+  const birth = h('input.input', { type: 'date', value: u.birthDate || '', min: '1940-01-01', max: '2015-12-31' });
+  const subj = h('input.input', { value: u.subject || '', maxlength: 80, list: 'dn-subj-list', placeholder: 'Ví dụ: Toán' });
+  const subjList = h('datalist', { id: 'dn-subj-list' }, ['Ngữ văn', 'Toán', 'Tiếng Anh', 'Khoa học tự nhiên', 'Lịch sử và Địa lí', 'Giáo dục công dân',
+    'Tin học', 'Công nghệ', 'Giáo dục thể chất', 'Âm nhạc', 'Mĩ thuật', 'Hoạt động trải nghiệm, hướng nghiệp', 'Nội dung giáo dục địa phương'].map((x) => h('option', { value: x })));
   const camps = b.campuses.map((c) => h('label.check', h('input', { type: 'checkbox', checked: picked.includes(c.id),
     onchange: (e) => { picked = e.target.checked ? [...picked, c.id] : picked.filter((x) => x !== c.id); } }), c.name));
   return h('section.card.stack',
@@ -24,11 +28,13 @@ export function workCard(b, u, { onSaved } = {}) {
     h('div.field', h('label', 'Tổ chuyên môn'), dep),
     h('div.field', h('label', 'Chức vụ (ghi trên đơn)'), pos, posList,
       h('div.hint', 'Chỉ là chữ in trên đơn. Quyền duyệt đơn, xem báo cáo do quản trị viên cấp, không thay đổi theo ô này.')),
+    h('div.field', h('label', 'Môn dạy (ghi trên đơn)'), subj, subjList, h('div.hint', 'Nhân viên không dạy thì để trống.')),
+    h('div.field', h('label', 'Ngày sinh (ghi trên đơn)'), birth),
     h('button.btn.primary.block', {
       onclick: async () => {
         if (!picked.length) { toast('Chọn ít nhất một điểm trường.', 'bad'); return; }
         try {
-          await busy('Đang lưu…', () => api('me.update', { campusIds: picked, departmentId: dep.value, positionTitle: pos.value.trim() }, { write: true }));
+          await busy('Đang lưu…', () => api('me.update', { campusIds: picked, departmentId: dep.value, positionTitle: pos.value.trim(), subject: subj.value.trim(), birthDate: birth.value }, { write: true }));
         } catch (e) { return; }
         await refreshBoot(); toast('Đã lưu thông tin công tác.', 'ok');
         if (onSaved) onSaved(); else render();

@@ -30,7 +30,8 @@ export async function render(id) {
   const f = {
     id: null, rowVersion: '', sourceType: 'TEMPLATE', leaveTypeId: '', otherNote: '', startDate: today, startSession: 'AM',
     endDate: today, endSession: 'PM', reason: '', contactPhone: b.user.phone || '',
-    campusIds: b.user.campusIds.length === 1 ? b.user.campusIds.slice() : [], attachments: [], upload: null
+    campusIds: b.user.campusIds.length === 1 ? b.user.campusIds.slice() : [], attachments: [], upload: null,
+    extra: { payMode: 'PAID', handoverTo: '', handoverDeptId: '' }
   };
   let needNote = '';
   if (id) {
@@ -42,7 +43,8 @@ export async function render(id) {
     Object.assign(f, {
       id: L.id, rowVersion: L.rowVersion, sourceType: L.sourceType || 'TEMPLATE', leaveTypeId: L.leaveTypeId, otherNote: L.otherNote || '',
       startDate: L.startDate || today, startSession: L.startSession || 'AM', endDate: L.endDate || today, endSession: L.endSession || 'PM',
-      reason: L.reason || '', contactPhone: L.contactPhone || '', campusIds: L.campusIds || []
+      reason: L.reason || '', contactPhone: L.contactPhone || '', campusIds: L.campusIds || [],
+      extra: Object.assign({ payMode: 'PAID', handoverTo: '', handoverDeptId: '' }, L.extra || {})
     });
     for (const fid of L.attachmentIds || []) {
       try { const info = await api('files.info', { fileId: fid }); f.attachments.push(info); } catch (e) { /* tệp đã được chuyển vào hồ sơ */ }
@@ -102,9 +104,13 @@ export async function render(id) {
     const t = b.leaveTypes.find((x) => x.id === f.leaveTypeId);
     noteField.hidden = !(t && t.requiresNote);
     annualHint.hidden = !(t && t.deductsAnnual);
+    payField.hidden = !t || !!t.deductsAnnual;
+    clear(paySeg, seg([['PAID', 'Hưởng lương'], ['UNPAID', 'Không lương']], f.extra.payMode, (v) => { f.extra.payMode = v; drawTypes(); }));
   };
+  const paySeg = h('div');
+  const payField = h('div.field', h('label', 'Chế độ lương trong thời gian nghỉ'), paySeg);
   const annualHint = h('div.tiny', b.balance ? 'Nghỉ phép năm: bạn còn ' + fmtDays(b.balance.remaining) + '.' : '');
-  page.append(h('section.card.stack', h('h2', 'Loại nghỉ'), types, annualHint, noteField));
+  page.append(h('section.card.stack', h('h2', 'Loại nghỉ'), types, annualHint, noteField, payField));
   drawTypes();
 
   // 3. Thời gian
@@ -146,6 +152,19 @@ export async function render(id) {
     h('div.field', h('label', 'Điểm trường liên quan'), myCampuses.length ? campusBox : h('div.alert.warn', 'Bạn chưa chọn điểm trường công tác. ', h('a', { href: '#/profile' }, 'Vào Cá nhân → Công tác để chọn'), '.')),
     h('div.field', h('label', 'Lý do'), h('textarea.input', { rows: 3, value: f.reason, placeholder: 'Ví dụ: Đưa con đi khám bệnh', oninput: (e) => { f.reason = e.target.value; } })),
     h('div.field', h('label', 'Số điện thoại liên hệ'), h('input.input', { type: 'tel', inputmode: 'tel', value: f.contactPhone, oninput: (e) => { f.contactPhone = e.target.value; } }))));
+
+  // 4b. Bàn giao công việc / dạy thay (in trên đơn)
+  const depSel = h('select.input', { onchange: (e) => { f.extra.handoverDeptId = e.target.value; } },
+    h('option', { value: '' }, '— Chọn tổ —'),
+    (b.departments || []).map((d) => h('option', { value: d.id, selected: d.id === (f.extra.handoverDeptId || '') }, d.name)));
+  if (!f.extra.handoverDeptId && b.user.departmentId) { depSel.value = b.user.departmentId; f.extra.handoverDeptId = depSel.value; }
+  const missing = [!b.user.birthDate && 'ngày sinh', !b.user.subject && 'môn dạy'].filter(Boolean);
+  page.append(h('section.card.stack',
+    h('h2', 'Bàn giao công việc / Dạy thay'),
+    h('div.field', h('label', 'Thầy/cô nhận bàn giao, dạy thay'), h('input.input', { value: f.extra.handoverTo, placeholder: 'Ví dụ: Nguyễn Thị Lan', maxlength: 120, oninput: (e) => { f.extra.handoverTo = e.target.value; } })),
+    h('div.field', h('label', 'Thuộc tổ'), depSel),
+    h('div.tiny', 'Có thể để trống nếu chưa bố trí được; đơn sẽ in dòng chấm để ghi sau.'),
+    missing.length ? h('div.alert.info', 'Đơn có in ', missing.join(' và '), ' của bạn nhưng bạn chưa khai. ', h('a', { href: '#/profile' }, 'Vào Cá nhân → Công tác để bổ sung'), '.') : null));
 
   // 5. Tệp đính kèm
   const attBox = h('div.stack');
@@ -193,7 +212,7 @@ export async function render(id) {
   const payload = () => ({
     id: f.id, rowVersion: f.rowVersion, sourceType: f.sourceType, leaveTypeId: f.leaveTypeId, otherNote: f.otherNote,
     startDate: f.startDate, startSession: f.startSession, endDate: f.endDate, endSession: f.endSession, reason: f.reason,
-    contactPhone: f.contactPhone, campusIds: f.campusIds, attachmentIds: f.attachments.map((a) => a.fileId),
+    contactPhone: f.contactPhone, campusIds: f.campusIds, attachmentIds: f.attachments.map((a) => a.fileId), extra: f.extra,
     uploadedFileId: f.sourceType === 'UPLOAD' && f.upload ? f.upload.fileId : ''
   });
   const save = async () => {

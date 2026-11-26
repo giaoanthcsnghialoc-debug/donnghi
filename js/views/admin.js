@@ -66,7 +66,7 @@ export async function renderUserForm(id) {
   const page = layout(isNew ? 'Thêm tài khoản' : 'Sửa tài khoản', { back: '#/admin/users' });
   if (!guard(page, adminCan('users'))) return;
   const b = state.boot;
-  let u = { fullName: '', username: '', staffCode: '', email: '', phone: '', zaloPhone: '', positionTitle: '', departmentId: '', campusIds: [], roles: ['TEACHER'], adminPerms: [], status: 'ACTIVE' };
+  let u = { fullName: '', username: '', staffCode: '', email: '', phone: '', zaloPhone: '', positionTitle: '', subject: '', birthDate: '', departmentId: '', campusIds: [], roles: ['TEACHER'], adminPerms: [], status: 'ACTIVE' };
   if (!isNew) {
     page.append(h('div.splash', h('div.spinner')));
     const all = await api('users.list');
@@ -82,6 +82,7 @@ export async function renderUserForm(id) {
     inp('fullName', 'Họ và tên'), inp('username', 'Tên đăng nhập', 'text', 'Chữ không dấu, số, dấu chấm. Ví dụ: nguyenvana'),
     inp('staffCode', 'Mã nhân viên'), inp('email', 'Email cá nhân', 'email', 'Dùng để tự khôi phục mật khẩu.'),
     inp('phone', 'Số điện thoại', 'tel'), inp('zaloPhone', 'Số Zalo (nếu có)', 'tel'), inp('positionTitle', 'Chức vụ'),
+    inp('subject', 'Môn dạy'), inp('birthDate', 'Ngày sinh', 'date'),
     h('div.field', h('label', 'Tổ chuyên môn'), dep)),
   h('section.card', h('h2', 'Điểm trường công tác'), b.campuses.map((c) => box('campusIds', c.id, c.name))),
   h('section.card', h('h2', 'Vai trò'), ROLES.map((r) => box('roles', r, roleName(r))), permBox));
@@ -103,7 +104,7 @@ export async function renderUserForm(id) {
   }
 }
 
-const IMPORT_HEAD = ['Mã NV', 'Họ và tên', 'Tên đăng nhập', 'Email', 'Số điện thoại', 'Số Zalo', 'Chức vụ', 'Tổ chuyên môn', 'Điểm trường', 'Vai trò'];
+const IMPORT_HEAD = ['Mã NV', 'Họ và tên', 'Tên đăng nhập', 'Email', 'Số điện thoại', 'Số Zalo', 'Chức vụ', 'Tổ chuyên môn', 'Điểm trường', 'Vai trò', 'Ngày sinh', 'Môn dạy'];
 const IMPORT_ROLES = ['Giáo viên', 'Nhân viên', 'Tổ trưởng', 'Phó Hiệu trưởng'];
 
 /** Tệp Excel mẫu: trang Danh sách (điền), trang Danh mục (tổ, điểm trường, vai trò để chọn), trang Hướng dẫn. */
@@ -115,8 +116,8 @@ function downloadImportTemplate() {
   const col = (letter, count) => `'Danh mục'!$${letter}$2:$${letter}$${count + 1}`;
   const sheets = [
     {
-      name: 'Danh sách', header: IMPORT_HEAD, rows: [], textCols: [0, 2, 4, 5],
-      widths: [10, 26, 16, 26, 14, 14, 16, 24, 22, 18],
+      name: 'Danh sách', header: IMPORT_HEAD, rows: [], textCols: [0, 2, 4, 5, 10],
+      widths: [10, 26, 16, 26, 14, 14, 16, 24, 22, 18, 13, 18],
       validations: [
         { sqref: 'H2:H400', formula: col('A', Math.max(1, deps.length)), prompt: 'Chọn tổ trong danh sách' },
         { sqref: 'I2:I400', formula: col('B', Math.max(1, camps.length)), prompt: 'Chọn điểm trường. Dạy nhiều điểm thì gõ: Phân hiệu 1; Phân hiệu 2' },
@@ -136,6 +137,8 @@ function downloadImportTemplate() {
         ['Tổ chuyên môn', 'Chọn trong danh sách thả xuống (lấy từ trang Danh mục).', deps[0] || 'Tổ Khoa học tự nhiên'],
         ['Điểm trường', 'Bắt buộc. Chọn trong danh sách. Dạy nhiều điểm thì gõ các tên cách nhau bằng dấu chấm phẩy.', camps.slice(0, 2).join('; ')],
         ['Vai trò', 'Để trống = Giáo viên. Có thể nhiều vai trò, cách nhau bằng dấu chấm phẩy. Hiệu trưởng và quản trị viên tạo riêng trong ứng dụng.', 'Tổ trưởng; Giáo viên'],
+        ['Ngày sinh', 'Không bắt buộc, in trên đơn. Ghi dạng ngày/tháng/năm.', '12/05/1985'],
+        ['Môn dạy', 'Không bắt buộc, in trên đơn. Nhân viên để trống.', 'Toán'],
         ['Lưu ý', 'Điền từ dòng 2 trang Danh sách, mỗi người một dòng, không đổi tên hay thứ tự cột. Tải lên xong hệ thống kiểm tra trước, chưa tạo ngay.', '']
       ]
     }
@@ -431,14 +434,15 @@ export async function renderTemplate() {
   const simple = h('section.card.stack',
     h('h2', 'Nội dung mẫu'),
     text('title', 'Tiêu đề đơn'),
-    text('recipient', 'Dòng kính gửi', 'Có thể giữ {{SCHOOL_NAME_TITLE}} để tự điền tên trường.'),
-    text('extraLine', 'Câu thêm trước lời kết (không bắt buộc)', 'Ví dụ: Tôi xin cam kết bàn giao công việc, nhờ đồng nghiệp dạy thay đầy đủ.'),
+    text('recipient', 'Kính gửi', 'Có thể giữ {{SCHOOL_NAME_TITLE}} để tự điền tên trường.'),
+    text('commitment', 'Câu cam kết'),
+    text('extraLine', 'Câu thêm trước lời kết (không bắt buộc)'),
     text('closing', 'Lời kết'),
     text('senderTitle', 'Chức danh ô ký người làm đơn'),
     h('div.field', h('label', 'Cỡ chữ'), h('select.input', { onchange: (e) => { o.fontSize = Number(e.target.value); } }, [11, 12, 13, 14].map((n) => h('option', { value: n, selected: Number(o.fontSize) === n }, n + ' pt')))),
     h('h2', 'Hiện các dòng'),
-    tog('showStaffCode', 'Mã nhân viên'), tog('showPosition', 'Chức vụ'), tog('showDepartment', 'Tổ chuyên môn'),
-    tog('showCampuses', 'Điểm trường công tác'), tog('showSelectedCampuses', 'Điểm trường liên quan'), tog('showPhone', 'Số điện thoại liên hệ'),
+    tog('showBirth', 'Ngày sinh'), tog('showSubject', 'Môn dạy'), tog('showPhone', 'Điện thoại liên hệ'),
+    tog('showHandover', 'Bàn giao công việc / Dạy thay'), tog('showCommitment', 'Câu cam kết'),
     tog('showLogo', 'Logo trường ở góc trên (thường không dùng trên đơn hành chính)'));
   const adv = h('section.card.stack',
     h('h2', 'Sửa HTML (nâng cao)'),

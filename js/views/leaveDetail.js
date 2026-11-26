@@ -130,6 +130,8 @@ export async function render(id) {
       h('dt', 'Điểm trường'), h('dd', (L.campusNames || []).join(', ') || '—'),
       snap.positionTitle ? [h('dt', 'Chức vụ'), h('dd', snap.positionTitle)] : null,
       snap.departmentName ? [h('dt', 'Tổ'), h('dd', snap.departmentName)] : null,
+      L.extra && L.extra.handoverTo ? [h('dt', 'Dạy thay'), h('dd', L.extra.handoverTo + (L.extra.handoverDeptId ? ' (' + ((state.boot.departments || []).find((d) => d.id === L.extra.handoverDeptId) || {}).name + ')' : ''))] : null,
+      L.extra && L.extra.payMode === 'UNPAID' ? [h('dt', 'Chế độ'), h('dd', 'Không lương')] : null,
       L.contactPhone ? [h('dt', 'Liên hệ'), h('dd', h('a', { href: 'tel:' + L.contactPhone }, L.contactPhone))] : null,
       h('dt', 'Cách tạo'), h('dd', L.sourceType === 'UPLOAD' ? 'Đơn tải lên' : 'Mẫu của trường'),
       L.submittedAt ? [h('dt', 'Gửi lúc'), h('dd', viDateTime(L.submittedAt) + (L.isRetroactive ? ' (nộp sau khi nghỉ)' : ''))] : null)));
