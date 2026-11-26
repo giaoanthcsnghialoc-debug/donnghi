@@ -132,16 +132,14 @@ export async function render(id) {
   sDate.addEventListener('change', () => { f.startDate = sDate.value; if (!f.endDate || f.endDate < f.startDate) { f.endDate = f.startDate; eDate.value = f.endDate; } recalc(); });
   eDate.addEventListener('change', () => { f.endDate = eDate.value; recalc(); });
   const preset = (label, s, ss, e, es) => h('button.chip', { type: 'button', onclick: () => { Object.assign(f, { startDate: s, startSession: ss, endDate: e, endSession: es }); sDate.value = s; eDate.value = e; drawSegs(); recalc(); } }, label);
-  // ngày làm việc kế tiếp (bỏ qua thứ Bảy, Chủ nhật)
-  let tmr = addDays(today, 1);
-  while ([0, 6].includes(new Date(tmr + 'T00:00:00').getDay())) tmr = addDays(tmr, 1);
+  const tmr = addDays(today, 1);
   page.append(h('section.card.stack',
     h('h2', 'Thời gian nghỉ'),
-    h('div.chips', preset('Sáng nay', today, 'AM', today, 'AM'), preset('Chiều nay', today, 'PM', today, 'PM'), preset('Cả ngày hôm nay', today, 'AM', today, 'PM'), preset('Ngày làm việc kế tiếp', tmr, 'AM', tmr, 'PM')),
+    h('div.chips', preset('Sáng nay', today, 'AM', today, 'AM'), preset('Chiều nay', today, 'PM', today, 'PM'), preset('Cả ngày hôm nay', today, 'AM', today, 'PM'), preset('Cả ngày mai', tmr, 'AM', tmr, 'PM')),
     h('div.field', h('label', 'Từ ngày'), sDate), sSeg,
     h('div.field', h('label', 'Đến ngày'), eDate), eSeg,
     daysOut, retroNote,
-    h('div.tiny', 'Hệ thống tự bỏ thứ Bảy, Chủ nhật. Ngày lễ vẫn được tính.')));
+    h('div.tiny', 'Thứ Bảy, Chủ nhật và ngày lễ nằm trong khoảng nghỉ đều được tính.')));
   drawSegs(); recalc();
 
   // 4. Điểm trường liên quan, lý do, liên hệ

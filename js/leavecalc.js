@@ -9,11 +9,9 @@ export function calcLeave(startDate, startSession, endDate, endSession) {
   if (n > 366) return { error: 'Khoảng nghỉ quá dài.' };
   let sessions = 0;
   for (let i = 0; i < n; i++) {
-    const wd = new Date(s + i * 86400000).getUTCDay();
-    if (wd === 0 || wd === 6) continue;
     if (!(i === 0 && startSession === 'PM')) sessions++;
     if (!(i === n - 1 && endSession === 'AM')) sessions++;
   }
-  if (!sessions) return { error: 'Khoảng này chỉ gồm thứ Bảy, Chủ nhật.' };
+  if (!sessions) return { error: 'Khoảng này không có buổi nghỉ nào.' };
   return { sessions, days: sessions / 2 };
 }
